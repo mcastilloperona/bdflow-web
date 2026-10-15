@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>BDFlow Ver. 4.10.5</title>
+  <title>BDFlow Ver. 4.10.6</title>
   <meta name="theme-color" content="#2563eb" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -945,8 +945,8 @@
       .meta{grid-template-columns:repeat(2,minmax(0,1fr))!important}
     }
   </style>
-  <link rel="stylesheet" href="features/reforma/app.css?v=4.10.5">
-<link rel="stylesheet" href="features/auth/auth.css?v=4.10.5">
+  <link rel="stylesheet" href="features/reforma/app.css?v=4.10.6">
+<link rel="stylesheet" href="features/auth/auth.css?v=4.10.6">
 </head>
 <body class="bd-auth-locked">
   <section id="bd-auth" aria-label="Acceso privado"><div class="bd-auth-card"><h1>BDFlow</h1><p>Comprobando acceso…</p></div></section>
@@ -959,7 +959,7 @@
             <div class="logo">BD<b>Flow</b></div>
             <div class="sub">by Miguel Castillo</div>
           </div>
-          <div class="version">Ver. 4.10.5</div>
+          <div class="version">Ver. 4.10.6</div>
         </div>
       </div>
 
@@ -1181,7 +1181,7 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3"></script>
-  <script src="features/auth/auth.js?v=4.10.5"></script>
+  <script src="features/auth/auth.js?v=4.10.6"></script>
   <script>
     const STORAGE_KEY = 'bdflow_v262_state';
 
@@ -4182,9 +4182,9 @@ function renderConfig(){
     });
   }
   </script>
-  <script src="features/reforma/core.js?v=4.10.5"></script>
-  <script src="features/reforma/export.js?v=4.10.5"></script>
-  <script src="features/reforma/app.js?v=4.10.5"></script>
+  <script src="features/reforma/core.js?v=4.10.6"></script>
+  <script src="features/reforma/export.js?v=4.10.6"></script>
+  <script src="features/reforma/app.js?v=4.10.6"></script>
   <script>BDAuth.boot({client:initSupabaseClient(),hydrate:hydratePrivateState,clear:clearPrivateState,render,localNotice,save:persistPrivateState,saveError:()=>{state.supabase.lastSyncStatus="Error";showToast("No se ha guardado","Mantén esta pestaña abierta y vuelve a intentar guardar.");}});</script>
 </body>
 </html>
