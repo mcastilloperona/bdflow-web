@@ -55,8 +55,8 @@
   const draw=(text,x,y,size=22,color=NAVY,weight='400',align='left')=>{g.fillStyle='#'+color;g.font=weight+' '+size+'px Inter, Arial';g.textAlign=align;g.fillText(String(text),x,y);g.textAlign='left';};
   g.fillStyle='#FFFFFF';g.fillRect(0,0,1920,1080);g.drawImage(logoImage,72,43,155,63);draw('Plan Reforma Laboral',275,86,42,NAVY,'600');draw('México',275,124,23,GRAY);draw('Datos del '+(ctx.selectionLabel||fmtDate(ctx.date)),1848,73,22,GRAY,'400','right');draw(ctx.scopeLabel||C.scopeLabel(ctx.scope),1848,112,22,GRAY,'400','right');
   g.fillStyle='#EEF3FA';g.fillRect(72,152,1776,197);
-  draw('Booking ganado 2026',98,193,25,NAVY,'500');draw(money(a.booking),98,271,72,BLUE,'600');draw(a.won+' oportunidades ganadas',101,311,23,GRAY);
-  draw('Objetivo 2026',800,193,25,NAVY,'500');draw(money(a.target),800,263,51,NAVY,'600');draw('Pendiente: '+money(a.remaining),802,307,23,GRAY);
+  draw('Booking ganado 2026',98,193,25,NAVY,'500');draw(money(a.booking),98,263,56,BLUE,'600');draw(a.won+' oportunidades ganadas',101,311,23,GRAY);
+  draw('Objetivo 2026',800,193,25,NAVY,'500');draw(money(a.target),800,263,56,NAVY,'600');draw('Pendiente: '+money(a.remaining),802,307,23,GRAY);
   draw('Cumplimiento',1530,193,25,NAVY,'500');draw(a.percent===null?'No disponible':a.percent.toLocaleString('es-ES',{maximumFractionDigits:2})+' %',1530,263,a.percent===null?28:54,BLUE,'600');
   g.fillStyle='#D7E0F0';g.fillRect(98,328,1724,8);g.fillStyle='#'+BLUE;g.fillRect(98,328,1724*Math.max(0,Math.min(100,a.percent||0))/100,8);
   [['Total abiertas',m.active],['Nurturing',m.nurturing],['Ganadas',m.won],['Perdidas o sin decisión',m.lost]].forEach(([label,value],i)=>{const x=72+i*453;draw(label,x,391,22,GRAY);draw(value,x,437,42,NAVY,'600');if(i===0)draw(m.activeAccounts+' cuentas',x+103,432,20,GRAY);if(i===3)draw('Closed Lost: '+m.closedLost+'   Closed No Decision: '+m.noDecision,x+75,432,15,GRAY);});
