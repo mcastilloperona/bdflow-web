@@ -1,0 +1,14 @@
+const CACHE='bdflow-v4-10-5';
+self.addEventListener('install',event=>{self.skipWaiting();});
+self.addEventListener('activate',event=>{
+  event.waitUntil(
+    caches.keys()
+      .then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k))))
+      .then(()=>self.clients.claim())
+  );
+});
+self.addEventListener('fetch',event=>{
+  if(event.request.url.includes('generativelanguage.googleapis.com')) return;
+  if(event.request.method!=='GET') return;
+  event.respondWith(fetch(event.request).catch(()=>caches.match(event.request)));
+});
