@@ -67,3 +67,5 @@
 .rf-pipeline-fold{margin:16px 0 12px!important;border-top:3px solid #2962ff}.rf-pipeline-fold>summary{cursor:pointer;font-size:16px;font-weight:600;line-height:1.6;min-height:28px}.rf-pipeline-fold>summary small{font-size:13px;font-weight:400;color:#64748b;float:right;margin-left:18px}.rf-pipeline-fold>.rf-pipeline-variance{border:0;margin:14px 0 0;padding:0}.rf-pipeline-fold>.rf-pipeline-variance>.rf-section-heading{display:none}@media(max-width:750px){.rf-pipeline-fold>summary small{display:block;float:none;margin:6px 0 0 18px}}
 
 .rf-cards{grid-template-columns:repeat(5,minmax(0,1fr))}@media(max-width:850px){.rf-cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+.rf-open-part>strong>small{display:flex;flex-direction:column;align-items:flex-end;gap:3px}.rf-open-part .rf-booking-value{font-size:30px;font-weight:700;line-height:1.2;white-space:nowrap}.rf-open-part .rf-booking-label{font-size:12px;font-weight:500;line-height:1.2}@media(max-width:600px){.rf-open-part .rf-booking-value{font-size:28px}}
