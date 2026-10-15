@@ -64,16 +64,20 @@
   cover.mergeCells('A12:L12');cover.getCell('A12').value='Perdidas: '+m.closedLost+': '+money(m.closedLostAmount)+'   No decisión: '+m.noDecision+': '+money(m.noDecisionAmount)+'   Total: '+money(m.lostAmount);cover.getCell('A12').font={name:'Inter',size:11,bold:true,color:{argb:NAVY}};cover.getCell('A12').alignment={wrapText:true,vertical:'middle'};cover.getRow(12).height=32;
 
 
-  const variance=book.addWorksheet('Desvíos pipeline');styleSheet(variance,'Desvíos del pipeline entre cortes',logo,ctx);
+  const variance=book.addWorksheet('Desvíos pipeline');styleSheet(variance,'Desvíos del pipeline abierto sin etapa G',logo,ctx);
   const net=ctx.amountComparable?(C.cents(m.amount)-C.cents(ctx.previousMetrics.amount))/100:null;
   table(variance,['Indicador','Anterior','Actual','Variación'],[['SaaS Booking (incluye G)',ctx.previousDate?ctx.previousMetrics.amount:'Sin comparación',m.amount,ctx.previousDate?net:'Sin comparación'],['SaaS Booking abiertas sin G',ctx.previousDate?ctx.previousMetrics.nonGAmount:'Sin comparación',m.nonGAmount,ctx.previousDate&&ctx.previousMetrics.nonGAmount!==null&&m.nonGAmount!==null?(C.cents(m.nonGAmount)-C.cents(ctx.previousMetrics.nonGAmount))/100:null]],[44,58,26,26]);
   for(const col of [2,3,4])variance.getColumn(col).numFmt='#,##0.00 "€"';
   variance.mergeCells('A9:I10');variance.getCell('A9').value='Contribución de cada cuenta a la variación del SaaS Booking. Las entradas y salidas del alcance o del informe se identifican por separado; no se convierten en pérdidas. El SaaS Booking es cero cuando la oportunidad queda fuera del conjunto. Los originales se conservan.';variance.getCell('A9').alignment={wrapText:true,vertical:'top'};
   const vh=['Cuenta','Oportunidad','SaaS Booking anterior','SaaS Booking actual','Variación SaaS Booking','Motivo','Etapa anterior','Etapa actual','Propietario actual'];variance.getRow(12).values=vh;variance.getRow(12).height=36;variance.getRow(12).eachCell(c=>{c.font={name:'Inter',size:11,bold:true,color:{argb:'FFFFFF'}};c.fill={type:'pattern',pattern:'solid',fgColor:{argb:NAVY}};c.alignment={wrapText:true,vertical:'middle'};});
-  C.pipelineRows(ctx).forEach((v,i)=>{const r=variance.getRow(13+i);r.values=[(v.after||v.before).account,(v.after||v.before).opportunity,v.beforeAmount===null?'No disponible':v.beforeAmount,v.afterAmount===null?'No disponible':v.afterAmount,v.amount===null?'No disponible':v.amount,v.reason,v.before?.stage||'No aparece',v.after?.stage||'No aparece',v.after?.owner||v.before?.owner];r.height=64;r.eachCell(c=>{c.font={name:'Inter',size:11,color:{argb:NAVY}};c.alignment={wrapText:true,vertical:'top'};});for(const col of [3,4,5])r.getCell(col).numFmt='#,##0.00 "€"';});for(const col of [5,6,7,8,9])variance.getColumn(col).width=32;
+  C.pipelineRows(ctx,true).forEach((v,i)=>{const r=variance.getRow(13+i);r.values=[(v.after||v.before).account,(v.after||v.before).opportunity,v.beforeAmount===null?'No disponible':v.beforeAmount,v.afterAmount===null?'No disponible':v.afterAmount,v.amount===null?'No disponible':v.amount,v.reason,v.before?.stage||'No aparece',v.after?.stage||'No aparece',v.after?.owner||v.before?.owner];r.height=64;r.eachCell(c=>{c.font={name:'Inter',size:11,color:{argb:NAVY}};c.alignment={wrapText:true,vertical:'top'};});for(const col of [3,4,5])r.getCell(col).numFmt='#,##0.00 "€"';});for(const col of [5,6,7,8,9])variance.getColumn(col).width=32;
   for(const row of [6,7])for(const col of [2,3,4])if(variance.getCell(row,col).value===null&&ctx.previousDate)variance.getCell(row,col).value='No disponible';
 
-  const charts=[{type:'bar',title:'Situación de las oportunidades',categories:labels,values:vals,catFormula:`'Evolución'!$A$${statusRow+1}:$A$${statusRow+5}`,valFormula:`'Evolución'!$B$${statusRow+1}:$B$${statusRow+5}`,color:BLUE,position:[0,12,6,25]},{type:'bar',title:'Etapas comerciales',categories:stageNames.map(C.stageLabel),values:stageVals,catFormula:`'Evolución'!$D$${statusRow+1}:$D$${statusRow+stageNames.length}`,valFormula:`'Evolución'!$E$${statusRow+1}:$E$${statusRow+stageNames.length}`,color:ORANGE,position:[6,12,12,25]},{type:'line',title:'Evolución de oportunidades en trabajo',categories:timeline.map(t=>fmtDate(t.date)),values:timeline.map(t=>t.active),catFormula:`'Evolución'!$A$6:$A$${5+timeline.length}`,valFormula:`'Evolución'!$B$6:$B$${5+timeline.length}`,color:BLUE,position:[0,27,6,40]},{type:'line',title:'Importe SaaS Booking',categories:timeline.map(t=>fmtDate(t.date)),values:timeline.map(t=>t.amount),catFormula:`'Evolución'!$A$6:$A$${5+timeline.length}`,valFormula:`'Evolución'!$F$6:$F$${5+timeline.length}`,color:ORANGE,position:[6,27,12,40]},{type:'bar',title:'Importe SaaS Booking de cierres previstos por mes',categories:months.map(m=>m.month?monthLabel(m.month+'-01'):'Sin fecha'),values:months.map(m=>m.amount),catFormula:`'Cierres por mes'!$A$6:$A$${Math.max(6,5+months.length)}`,valFormula:`'Cierres por mes'!$C$6:$C$${Math.max(6,5+months.length)}`,color:BLUE,position:[0,42,12,56]}];
+
+  const dailySheet=book.addWorksheet('Evolución Booking');styleSheet(dailySheet,'SaaS Booking abierto sin etapa G',logo,ctx);const daily=C.evolutionSeries(ctx);
+  table(dailySheet,['Fecha del corte','Oportunidades sin G','SaaS Booking abierto sin G','Variación oportunidades','Variación SaaS Booking','Corte anterior disponible','Días sin listado entre cortes'],daily.map(r=>[dateValue(r.date),r.count??'No disponible',r.amount??'No disponible',r.previousDate?(r.deltaCount??'No disponible'):'Sin comparación',r.previousDate?(r.deltaAmount??'No disponible'):'Sin comparación',dateValue(r.previousDate),r.missingDays]),[22,26,30,28,30,30,30]);for(const col of [3,5])dailySheet.getColumn(col).numFmt='#,##0.00 "€"';dailySheet.mergeCells('A'+(daily.length+8)+':G'+(daily.length+9));dailySheet.getCell('A'+(daily.length+8)).value=C.evolutionLabel(ctx)+'. Desde el primer listado guardado. Semanas de lunes a domingo. Último corte por periodo, sin sumar saldos. Periodo actual posiblemente incompleto. Variación frente al periodo anterior disponible. Todos los cortes en Evolución.';dailySheet.getCell('A'+(daily.length+8)).alignment={wrapText:true,vertical:'top'};
+
+  const charts=[{type:'bar',title:'Situación de las oportunidades',categories:labels,values:vals,catFormula:`'Evolución'!$A$${statusRow+1}:$A$${statusRow+5}`,valFormula:`'Evolución'!$B$${statusRow+1}:$B$${statusRow+5}`,color:BLUE,position:[0,12,6,25]},{type:'bar',title:'Etapas comerciales',categories:stageNames.map(C.stageLabel),values:stageVals,catFormula:`'Evolución'!$D$${statusRow+1}:$D$${statusRow+stageNames.length}`,valFormula:`'Evolución'!$E$${statusRow+1}:$E$${statusRow+stageNames.length}`,color:ORANGE,position:[6,12,12,25]},{type:'line',title:'Evolución de oportunidades abiertas sin G',categories:timeline.map(t=>fmtDate(t.date)),values:timeline.map(t=>t.nonGCount),catFormula:`'Evolución'!$A$6:$A$${5+timeline.length}`,valFormula:`'Evolución'!$R$6:$R$${5+timeline.length}`,color:BLUE,position:[0,27,6,40]},{type:'line',title:'SaaS Booking abierto sin G',categories:timeline.map(t=>fmtDate(t.date)),values:timeline.map(t=>t.nonGAmount),catFormula:`'Evolución'!$A$6:$A$${5+timeline.length}`,valFormula:`'Evolución'!$S$6:$S$${5+timeline.length}`,color:ORANGE,position:[6,27,12,40]},{type:'bar',title:'Importe SaaS Booking de cierres previstos por mes',categories:months.map(m=>m.month?monthLabel(m.month+'-01'):'Sin fecha'),values:months.map(m=>m.amount),catFormula:`'Cierres por mes'!$A$6:$A$${Math.max(6,5+months.length)}`,valFormula:`'Cierres por mes'!$C$6:$C$${Math.max(6,5+months.length)}`,color:BLUE,position:[0,42,12,56]}];
   return addNativeCharts(await book.xlsx.writeBuffer(),JSZip,charts);
  }
  function wrappedText(g,text,x,y,maxWidth,lineHeight,maxLines=2){const words=String(text).split(/\s+/);const lines=[];let line='';for(const w of words){const candidate=line?line+' '+w:w;if(g.measureText(candidate).width>maxWidth&&line){lines.push(line);line=w;}else line=candidate;}if(line)lines.push(line);lines.slice(0,maxLines).forEach((l,i)=>g.fillText(i===maxLines-1&&lines.length>maxLines?l.slice(0,-3)+'…':l,x,y+i*lineHeight));}
@@ -104,8 +108,8 @@
  }
 
  function sumKnown(values){return values.some(v=>v===null||v===undefined)?null:values.reduce((n,v)=>n+C.cents(v),0)/100;}
- function varianceSlideRows(ctx,maxRows=7){
-  const rows=C.pipelineRows(ctx).map(v=>({...v,account:(v.after||v.before).account,groupedCount:1}));
+ function varianceSlideRows(ctx,maxRows=7,excludeG=false){
+  const rows=C.pipelineRows(ctx,excludeG).map(v=>({...v,account:(v.after||v.before).account,groupedCount:1}));
   if(rows.length<=maxRows)return rows;
   const rest=rows.slice(maxRows-1),count=rest.length;
   return [...rows.slice(0,maxRows-1),{account:'Resto de movimientos',reason:count+' oportunidades. Detalle en Excel.',beforeAmount:sumKnown(rest.map(v=>v.beforeAmount)),afterAmount:sumKnown(rest.map(v=>v.afterAmount)),amount:sumKnown(rest.map(v=>v.amount)),groupedCount:count,isRemainder:true}];
@@ -120,16 +124,16 @@
  async function varianceCanvas(ctx,logoImage,canvasElement){
   const el=canvasElement||document.createElement('canvas');el.width=1920;el.height=1080;const g=el.getContext('2d'),m=ctx.metrics,p=ctx.previousMetrics;
   const signed=v=>v===null?'No disponible':(v>0?'+':'')+money(v);
-  const delta=ctx.previousDate&&ctx.amountComparable?(C.cents(m.amount)-C.cents(p.amount))/100:null;
+  const delta=ctx.previousDate&&m.nonGAmount!==null&&p.nonGAmount!==null?(C.cents(m.nonGAmount)-C.cents(p.nonGAmount))/100:null;
   const draw=(text,x,y,size=22,color=NAVY,weight='400',align='left')=>{g.fillStyle='#'+color;g.font=weight+' '+size+'px Inter, Arial';g.textAlign=align;g.fillText(String(text),x,y);g.textAlign='left';};
   const fit=(text,x,y,width,size=22,color=NAVY,weight='400')=>{g.font=weight+' '+size+'px Inter, Arial';let s=String(text);if(g.measureText(s).width>width){while(s&&g.measureText(s+'…').width>width)s=s.slice(0,-1);s+='…';}draw(s,x,y,size,color,weight);};
   g.fillStyle='#FFFFFF';g.fillRect(0,0,1920,1080);g.drawImage(logoImage,72,43,155,63);
-  draw('Variación del pipeline',275,86,42,NAVY,'600');draw('SaaS Booking de abiertas, incluida etapa G',275,124,23,GRAY);
+  draw('Variación del pipeline',275,86,42,NAVY,'600');draw('SaaS Booking abierto sin etapa G',275,124,23,GRAY);
   draw('Datos del '+(ctx.selectionLabel||fmtDate(ctx.date)),1848,73,22,GRAY,'400','right');draw(ctx.scopeLabel||C.scopeLabel(ctx.scope),1848,112,22,GRAY,'400','right');
   g.fillStyle='#EEF3FA';g.fillRect(72,152,1776,160);
-  [['Anterior: '+(ctx.previousLabel||'Sin comparación'),ctx.previousDate?money(p.amount):'Sin comparación',98,NAVY],['Actual: '+(ctx.selectionLabel||fmtDate(ctx.date)),money(m.amount),704,BLUE],['Variación neta',ctx.previousDate?signed(delta):'Sin comparación',1310,delta!==null&&delta<0?'9F1239':BLUE]].forEach(([label,value,x,color])=>{draw(label,x,194,24,NAVY,'500');draw(value,x,266,value==='Sin comparación'?36:50,color,'600');});
-  if(!ctx.previousDate){draw('Selecciona un listado anterior en “Comparar con”',98,410,34,NAVY,'600');draw('La segunda imagen explicará los cambios entre los dos cortes seleccionados.',98,468,26,GRAY);return el;}
-  const all=C.pipelineRows(ctx),rows=varianceSlideRows(ctx);
+  [['Anterior: '+(ctx.previousLabel||'Sin comparación'),ctx.previousDate?money(p.nonGAmount):'Sin comparación',98,NAVY],['Actual: '+(ctx.selectionLabel||fmtDate(ctx.date)),money(m.nonGAmount),704,BLUE],['Variación neta',ctx.previousDate?signed(delta):'Sin comparación',1310,delta!==null&&delta<0?'9F1239':BLUE]].forEach(([label,value,x,color])=>{draw(label,x,194,24,NAVY,'500');draw(value,x,266,value==='Sin comparación'?36:50,color,'600');});
+  if(!ctx.previousDate){draw('Selecciona un listado anterior en “Comparar con”',98,410,34,NAVY,'600');draw('La imagen de variación explicará los cambios entre los dos cortes seleccionados.',98,468,26,GRAY);return el;}
+  const all=C.pipelineRows(ctx,true),rows=varianceSlideRows(ctx,7,true);
   draw('Qué explica el cambio entre los dos cortes',72,362,28,NAVY,'600');
   g.fillStyle='#'+NAVY;g.fillRect(72,388,1776,44);
   draw('Cuenta',92,418,21,'FFFFFF','500');draw('Movimiento',540,418,21,'FFFFFF','500');draw('Anterior',1215,418,21,'FFFFFF','500','right');draw('Actual',1500,418,21,'FFFFFF','500','right');draw('Variación',1828,418,21,'FFFFFF','500','right');
@@ -139,18 +143,40 @@
   });
   if(!rows.length)draw('Sin variaciones del importe ni del número de abiertas.',92,492,27,GRAY);
   const grouped=rows.some(v=>v.isRemainder);draw(grouped?'Los seis movimientos de mayor impacto y el resto agrupado. Importes en euros.':'Todos los movimientos del pipeline. Importes en euros.',72,946,19,GRAY);
-  g.fillStyle='#F5F8FC';g.fillRect(72,972,1776,47);const nonGDelta=p.nonGAmount!==null&&m.nonGAmount!==null?(C.cents(m.nonGAmount)-C.cents(p.nonGAmount))/100:null;
-  draw('Sin etapa G',92,1003,21,NAVY,'600');draw('Anterior: '+money(p.nonGAmount),340,1003,21,NAVY);draw('Actual: '+money(m.nonGAmount),870,1003,21,BLUE,'500');draw('Variación: '+signed(nonGDelta),1828,1003,21,nonGDelta!==null&&nonGDelta<0?'9F1239':NAVY,'500','right');
-  draw('Los importes de cada fila corresponden a su contribución al pipeline abierto.',72,1057,18,GRAY);draw(all.length+' oportunidades con movimiento',1848,1057,18,GRAY,'400','right');return el;
+  g.fillStyle='#F5F8FC';g.fillRect(72,972,1776,47);const nonGDelta=p.stageGAmount!==null&&m.stageGAmount!==null?(C.cents(m.stageGAmount)-C.cents(p.stageGAmount))/100:null;
+  draw('Etapa G (separada)',92,1003,21,NAVY,'600');draw('Anterior: '+money(p.stageGAmount),340,1003,21,NAVY);draw('Actual: '+money(m.stageGAmount),870,1003,21,BLUE,'500');draw('Variación: '+signed(nonGDelta),1828,1003,21,nonGDelta!==null&&nonGDelta<0?'9F1239':NAVY,'500','right');
+  draw('Los importes de cada fila corresponden a su contribución al pipeline abierto sin etapa G.',72,1057,18,GRAY);draw(all.length+' oportunidades con movimiento',1848,1057,18,GRAY,'400','right');return el;
  }
+ async function evolutionCanvas(ctx,logoImage,canvasElement){
+  const el=canvasElement||document.createElement('canvas');el.width=1920;el.height=1080;const g=el.getContext('2d'),rows=C.evolutionSeries(ctx),last=rows.at(-1);
+  const draw=(text,x,y,size=22,color=NAVY,weight='400',align='left')=>{g.fillStyle='#'+color;g.font=weight+' '+size+'px Inter, Arial';g.textAlign=align;g.fillText(String(text),x,y);g.textAlign='left';};
+  const signed=v=>v===null?'No disponible':(v>0?'+':'')+money(v),count=v=>v===null?'No disponible':(v>0?'+':'')+v;
+  g.fillStyle='#FFFFFF';g.fillRect(0,0,1920,1080);g.drawImage(logoImage,72,43,155,63);draw('Evolución del Booking',275,86,42,NAVY,'600');draw('SaaS Booking abierto sin etapa G',275,124,23,GRAY);draw('Datos del '+(ctx.selectionLabel||fmtDate(ctx.date)),1848,73,22,GRAY,'400','right');draw(ctx.scopeLabel||C.scopeLabel(ctx.scope),1848,112,22,GRAY,'400','right');
+  g.fillStyle='#EEF3FA';g.fillRect(72,152,1776,150);
+  draw('SaaS Booking actual',98,193,24,NAVY,'500');draw(money(ctx.metrics.nonGAmount),98,263,52,BLUE,'600');
+  draw(ctx.evolutionPeriod&&ctx.evolutionPeriod!=='all'?'Variación frente al periodo anterior':'Variación frente al último corte',770,193,24,NAVY,'500');draw(last?.previousDate?signed(last.deltaAmount):'Sin comparación',770,255,last?.previousDate?42:32,last?.deltaAmount<0?'9F1239':BLUE,'600');if(last?.previousDate)draw('Corte anterior: '+fmtDate(last.previousDate),772,285,17,GRAY);
+  draw('Oportunidades sin G',1450,193,24,NAVY,'500');draw(ctx.metrics.nonGCount,1450,255,48,NAVY,'600');if(last?.previousDate)draw('Variación: '+count(last.deltaCount),1452,285,17,GRAY);
+  draw(C.evolutionLabel(ctx)+' desde '+fmtDate(C.dailyEvolution(ctx)[0]?.date),72,348,27,NAVY,'600');
+  const left=150,right=1800,top=385,bottom=665,values=rows.filter(r=>r.amount!==null).map(r=>r.amount),lo=Math.min(0,...values),hi=Math.max(1,...values),span=hi-lo||1;
+  const start=rows[0]?Date.parse(rows[0].date):Date.parse(ctx.date),end=rows.at(-1)?Date.parse(rows.at(-1).date):start,dateSpan=end-start||86400000,x=r=>rows.length===1?(left+right)/2:left+(Date.parse(r.date)-start)/dateSpan*(right-left),y=v=>bottom-(v-lo)/span*(bottom-top);
+  for(let i=0;i<=4;i++){const v=lo+span*i/4,yy=y(v);g.strokeStyle='#E2E8F0';g.lineWidth=1;g.beginPath();g.moveTo(left,yy);g.lineTo(right,yy);g.stroke();draw(new Intl.NumberFormat('es-ES',{notation:'compact',maximumFractionDigits:1}).format(v)+' €',left-20,yy+7,18,GRAY,'400','right');}
+  rows.forEach((r,i)=>{const p=rows[i-1];if(p&&p.amount!==null&&r.amount!==null){g.strokeStyle='#'+BLUE;g.lineWidth=4;g.setLineDash(r.missingDays>0?[9,7]:[]);g.beginPath();g.moveTo(x(p),y(p.amount));g.lineTo(x(r),y(r.amount));g.stroke();g.setLineDash([]);}if(r.amount!==null){g.fillStyle='#'+BLUE;g.beginPath();g.arc(x(r),y(r.amount),5,0,Math.PI*2);g.fill();}else{draw('Sin importe',x(r),bottom-14,15,GRAY,'400','center');}});
+  const labelIndexes=new Set(rows.length<=7?rows.map((_,i)=>i):[0,rows.length-1,...Array.from({length:5},(_,i)=>Math.round((i+1)*(rows.length-1)/6))]);labelIndexes.forEach(i=>draw(fmtDate(rows[i].date),x(rows[i]),705,18,GRAY,'400','center'));
+  if(!rows.length)draw('Sin cortes guardados en este periodo.',left,500,26,GRAY);draw('Último corte disponible por periodo. Periodo actual posiblemente incompleto. Trazo discontinuo: días sin listado.',72,748,18,GRAY);
+  draw('Últimos cortes disponibles',72,788,25,NAVY,'600');g.fillStyle='#'+NAVY;g.fillRect(72,805,1776,35);
+  [['Fecha',92,'left'],['SaaS Booking',690,'right'],['Oportunidades',970,'right'],['Variación opps',1290,'right'],['Variación Booking',1828,'right']].forEach(([t,x,a])=>draw(t,x,830,19,'FFFFFF','500',a));
+  rows.slice(-6).forEach((r,i)=>{const yy=868+i*29;draw(fmtDate(r.date),92,yy,20);draw(money(r.amount),690,yy,20,BLUE,'500','right');draw(r.count===null?'No disponible':r.count,970,yy,20,NAVY,'400','right');draw(r.previousDate?count(r.deltaCount):'Sin comparación',1290,yy,20,GRAY,'400','right');draw(r.previousDate?signed(r.deltaAmount):'Sin comparación',1828,yy,20,r.deltaAmount<0?'9F1239':NAVY,'500','right');});
+  draw('Variaciones frente al periodo anterior disponible. Todos los cortes en Excel.',72,1057,18,GRAY);draw(rows.length+' cortes en el periodo',1848,1057,18,GRAY,'400','right');return el;
+ }
+
  async function pptImages(ctx,logoImage,JSZip){
   const zip=new JSZip(),suffix='Reforma_Laboral_'+ctx.date;
-  for(const [name,render] of [['01_Resumen_',canvas],['02_Variacion_pipeline_',varianceCanvas]]){
+  for(const [name,render] of [['01_Resumen_',canvas],['02_Evolucion_historica_',evolutionCanvas],['03_Variacion_pipeline_',varianceCanvas]]){
    const el=await render(ctx,logoImage),blob=await new Promise(resolve=>el.toBlob(resolve,'image/png'));if(!blob)throw Error('No se pudo generar una de las imágenes para PPT.');zip.file(name+suffix+'.png',await blob.arrayBuffer());
   }
   return zip.generateAsync({type:'uint8array',compression:'DEFLATE'});
  }
 
- return {workbook,canvas,varianceCanvas,varianceSlideRows,pptImages,chartXML,addNativeCharts,fmtDate,money};
+ return {workbook,canvas,evolutionCanvas,varianceCanvas,varianceSlideRows,pptImages,chartXML,addNativeCharts,fmtDate,money};
 });
 
