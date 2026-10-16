@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>BDFlow Ver. 4.10.21</title>
+  <title>BDFlow Ver. 4.10.22</title>
   <meta name="theme-color" content="#2563eb" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -945,8 +945,9 @@
       .meta{grid-template-columns:repeat(2,minmax(0,1fr))!important}
     }
   </style>
-  <link rel="stylesheet" href="features/reforma/app.css?v=4.10.21">
-<link rel="stylesheet" href="features/auth/auth.css?v=4.10.21">
+  <link rel="stylesheet" href="features/reforma/app.css?v=4.10.22">
+<link rel="stylesheet" href="features/auth/auth.css?v=4.10.22">
+<link rel="stylesheet" href="features/latam/report.css?v=4.10.22">
 </head>
 <body class="bd-auth-locked">
   <section id="bd-auth" aria-label="Acceso privado"><div class="bd-auth-card"><h1>BDFlow</h1><p>Comprobando acceso…</p></div></section>
@@ -959,7 +960,7 @@
             <div class="logo">BD<b>Flow</b></div>
             <div class="sub">by Miguel Castillo</div>
           </div>
-          <div class="version">Ver. 4.10.21</div>
+          <div class="version">Ver. 4.10.22</div>
         </div>
       </div>
 
@@ -1181,7 +1182,7 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3"></script>
-  <script src="features/auth/auth.js?v=4.10.21"></script>
+  <script src="features/auth/auth.js?v=4.10.22"></script>
   <script>
     const STORAGE_KEY = 'bdflow_v262_state';
 
@@ -2748,27 +2749,13 @@
       if(state.latamMode === 'history'){
         return tabs+`<div class="panel"><div class="panel-head"><div><h2>Histórico LATAM</h2><p>Tarea, dedicación, hora y colaboración en orden cronológico.</p></div><button class="btn primary" onclick="openLatamModal()">+ Registrar</button></div><div class="panel-body">${actions.length?actions.map(a=>`<div class="activity-entry" style="margin-bottom:10px"><div class="activity-top"><div><div class="row-title">${escapeHtml(a.task)}</div><div class="row-sub">${escapeHtml(a.date)} · ${escapeHtml(a.time)} · ${escapeHtml(a.collaboration)}</div></div><div style="display:flex;gap:8px;align-items:center"><span class="badge blue">${a.hours}h</span><button class="btn secondary small" onclick="openLatamModal('${a.id}')">Editar</button></div></div>${a.context?`<div style="margin-top:8px;color:var(--muted);font-size:13px">${escapeHtml(a.context)}</div>`:''}</div>`).join(''):'<div class="empty">Todavía no hay colaboraciones registradas.</div>'}</div></div>`;
       }
-      if(state.latamMode === 'report'){
-        return tabs+`<div class="panel"><div class="panel-head"><div><h2>Informe de colaboración LATAM</h2><p>Resumen listo para compartir con Dirección.</p></div><button class="btn primary" onclick="copyLatamReport()">Copiar informe</button></div><div class="panel-body"><div class="task"><div class="task-title">Resumen</div><div class="task-sub">Se han registrado ${actions.length} tareas con una dedicación total de ${totalHours} horas, colaborando con ${collaborations.length} personas, equipos o áreas. ${afterHours?hFmt(afterHours)+' horas se realizaron fuera del horario habitual por la diferencia horaria con LATAM.':''}</div></div><div style="height:12px"></div>${collaborations.map(c=>{const rows=actions.filter(a=>a.collaboration===c);const h=Math.round(rows.reduce((s,a)=>s+Number(a.hours||0),0)*100)/100;return `<div class="activity-entry" style="margin-bottom:10px"><div class="row-title">${escapeHtml(c)} · ${h}h</div><div class="row-sub">${rows.map(a=>escapeHtml(a.task)).join(' · ')}</div></div>`}).join('')||'<div class="empty">Sin datos para generar el informe.</div>'}</div></div>`;
-      }
+      if(state.latamMode === 'report') return tabs+renderLatamExecutiveReport();
       const byCollaboration = {};
       actions.forEach(a=>{byCollaboration[a.collaboration]=(byCollaboration[a.collaboration]||0)+Number(a.hours||0)});
       return tabs+`<div class="metrics"><div class="metric"><div class="k">TIEMPO DEDICADO</div><div class="v">${totalHours}h</div><div class="s">Colaboración LATAM registrada</div></div><div class="metric"><div class="k">TAREAS REALIZADAS</div><div class="v">${actions.length}</div><div class="s">Actividad documentada</div></div><div class="metric"><div class="k">COLABORACIONES</div><div class="v">${collaborations.length}</div><div class="s">Personas, equipos o áreas</div></div><div class="metric"><div class="k">FUERA DE HORARIO</div><div class="v">${afterHours}h</div><div class="s">Antes de las 08:00 o desde las 18:00</div></div></div><div style="height:18px"></div><div class="panel"><div class="panel-head"><div><h2>Colaboración</h2><p>Dónde se concentra el tiempo de apoyo.</p></div><button class="btn primary" onclick="openLatamModal()">+ Registrar colaboración</button></div><div class="panel-body">${Object.keys(byCollaboration).length?Object.entries(byCollaboration).sort((a,b)=>b[1]-a[1]).map(x=>`<div class="activity-entry" style="margin-bottom:10px"><div class="activity-top"><div class="row-title">${escapeHtml(x[0])}</div><span class="badge blue">${Math.round(x[1]*100)/100}h</span></div></div>`).join(''):'<div class="empty">Registra la primera colaboración LATAM.</div>'}</div></div>`;
     }
 
     function hFmt(value){ return String(Math.round(Number(value||0)*100)/100).replace('.',','); }
-
-    function buildLatamReport(){
-      const actions=getLatamActions(), total=Math.round(actions.reduce((s,a)=>s+Number(a.hours||0),0)*100)/100;
-      const groups={}; actions.forEach(a=>{if(!groups[a.collaboration])groups[a.collaboration]=[];groups[a.collaboration].push(a)});
-      let out=`SEGUIMIENTO LATAM\n\n${actions.length} tareas · ${hFmt(total)} horas · ${Object.keys(groups).length} colaboraciones\n`;
-      Object.entries(groups).forEach(([name,rows])=>{const hours=rows.reduce((s,a)=>s+Number(a.hours||0),0);out+=`\n${name} · ${hFmt(hours)}h\n`;rows.forEach(a=>{out+=`- ${a.date} ${a.time} · ${a.task} · ${hFmt(a.hours)}h${a.context?' · '+a.context:''}\n`})});
-      return out;
-    }
-
-    function copyLatamReport(){
-      navigator.clipboard.writeText(buildLatamReport()).then(()=>showToast('Informe copiado','Listo para compartir con Dirección.'));
-    }
 
     function openLatamModal(id){
       const action = id ? (state.latamActions||[]).find(a=>a.id===id) : null;
@@ -3941,7 +3928,6 @@ function renderConfig(){
     window.closeLatamModal = closeLatamModal;
     window.saveLatamAction = saveLatamAction;
     window.deleteLatamAction = deleteLatamAction;
-    window.copyLatamReport = copyLatamReport;
     window.openDetailModal = openDetailModal;
     window.closeDetailModal = closeDetailModal;
     window.toggleDone = toggleDone;
@@ -4182,9 +4168,11 @@ function renderConfig(){
     });
   }
   </script>
-  <script src="features/reforma/core.js?v=4.10.21"></script>
-  <script src="features/reforma/export.js?v=4.10.21"></script>
-  <script src="features/reforma/app.js?v=4.10.21"></script>
+  <script src="features/reforma/core.js?v=4.10.22"></script>
+  <script src="features/reforma/export.js?v=4.10.22"></script>
+  <script src="features/reforma/app.js?v=4.10.22"></script>
+  <script src="features/latam/report.js?v=4.10.22"></script>
+  <script src="features/latam/ui.js?v=4.10.22"></script>
   <script>BDAuth.boot({client:initSupabaseClient(),hydrate:hydratePrivateState,clear:clearPrivateState,render,localNotice,save:persistPrivateState,saveError:()=>{state.supabase.lastSyncStatus="Error";showToast("No se ha guardado","Mantén esta pestaña abierta y vuelve a intentar guardar.");}});</script>
 </body>
 </html>
