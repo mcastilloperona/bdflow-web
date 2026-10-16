@@ -172,14 +172,12 @@
   draw('Variaciones frente al primer listado del histórico. Todos los listados en Excel.',72,1057,18,GRAY);draw(rows.length+' listados en el periodo',1848,1057,18,GRAY,'400','right');return el;
  }
 
- async function pptImages(ctx,logoImage,JSZip){
-  const zip=new JSZip(),suffix='Reforma_Laboral_'+ctx.date;
-  for(const [name,render] of [['01_Resumen_',canvas],['02_Evolucion_historica_',evolutionCanvas],['03_Variacion_pipeline_',varianceCanvas]]){
-   const el=await render(ctx,logoImage),blob=await new Promise(resolve=>el.toBlob(resolve,'image/png'));if(!blob)throw Error('No se pudo generar una de las imágenes para PPT.');zip.file(name+suffix+'.png',await blob.arrayBuffer());
-  }
-  return zip.generateAsync({type:'uint8array',compression:'DEFLATE'});
+ async function presentation(ctx,logoImage,PptxGenJS){
+  const pptx=new PptxGenJS();pptx.layout='LAYOUT_WIDE';pptx.author='BDFlow';pptx.subject='Seguimiento Reforma Laboral';pptx.title='Seguimiento Reforma Laboral '+fmtDate(ctx.date);pptx.company='Cegid';pptx.lang='es-ES';
+  for(const [title,render] of [['Resumen Reforma Laboral',canvas],['Evolución Reforma Laboral',evolutionCanvas],['Variación del pipeline Reforma Laboral',varianceCanvas]]){const el=await render(ctx,logoImage),slide=pptx.addSlide();slide.addImage({data:el.toDataURL('image/png'),x:0,y:0,w:13.3333333333,h:7.5,altText:title+' '+fmtDate(ctx.date)});}
+  return pptx.write({outputType:'blob',compression:true});
  }
 
- return {workbook,canvas,evolutionCanvas,varianceCanvas,varianceSlideRows,pptImages,chartXML,addNativeCharts,fmtDate,money};
+ return {workbook,canvas,evolutionCanvas,varianceCanvas,varianceSlideRows,presentation,chartXML,addNativeCharts,fmtDate,money};
 });
 
