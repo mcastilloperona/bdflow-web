@@ -106,7 +106,7 @@
   g.fillStyle='#'+NAVY;g.fillRect(1230,674,618,34);draw('Cuenta',1242,697,17,'FFFFFF','600');draw('Cierre',1565,697,17,'FFFFFF','600','center');draw('SaaS Booking',1835,697,17,'FFFFFF','600','right');
   ctx.monthlyClosures.slice(0,5).forEach((r,i)=>{const y=736+i*43;g.font='18px Inter, Arial';g.fillStyle='#'+NAVY;wrappedText(g,r.account,1242,y,235,20,2);draw(fmtDate(r.close_date),1565,y,18,r.close_date<ctx.date?'9F1239':NAVY,'400','center');if(r.close_date<ctx.date)draw('Vencida',1565,y+19,14,'9F1239','400','center');draw(money(C.saas(r)),1835,y,18,NAVY,'400','right');g.fillStyle='#EDF1F7';g.fillRect(1230,y+26,618,1);});if(!ctx.monthlyClosures.length)draw('Sin cierres previstos para este mes',1242,748,19,GRAY);
   if(ctx.monthlyClosures.length>5)draw('5 de '+ctx.monthlyClosures.length+' cierres. Detalle completo en Excel.',1230,965,17,GRAY);
-  g.fillStyle='#FFF4EE';g.fillRect(72,983,1776,40);const alertText=ctx.alerts.length?'Alertas en '+new Set(ctx.alerts.map(v=>v.record.operation_id)).size+' oportunidades   '+C.alertSummary(ctx.alerts).map(v=>v.count+' '+v.label).join('   '):'Sin alertas detectadas';draw(alertText,91,1010,21,NAVY);
+  g.fillStyle=ctx.alerts.length?'#FFF1F2':'#F5F8FC';g.fillRect(72,983,1776,40);const alertText=ctx.alerts.length?'Alertas en '+new Set(ctx.alerts.map(v=>v.record.operation_id)).size+' oportunidades   '+C.alertSummary(ctx.alerts).map(v=>v.count+' '+v.label).join('   '):'Sin alertas detectadas';draw(alertText,91,1010,21,ctx.alerts.length?'B91C1C':GRAY,'600');
   draw('Comparación: '+(ctx.previousDate?(ctx.previousLabel||fmtDate(ctx.previousDate)):'Sin listado anterior'),72,1057,17,GRAY);draw(m.reconstructed||p.reconstructed?'SaaS Booking histórico reconstruido':m.total+' oportunidades del alcance seleccionado',1848,1057,17,GRAY,'400','right');return el;
  }
 
@@ -150,6 +150,20 @@
   draw('Etapa G (separada)',92,1003,21,NAVY,'600');draw('Anterior: '+money(p.stageGAmount),340,1003,21,NAVY);draw('Actual: '+money(m.stageGAmount),870,1003,21,BLUE,'500');draw('Variación: '+signed(nonGDelta),1828,1003,21,nonGDelta!==null&&nonGDelta<0?'9F1239':NAVY,'500','right');
   draw('Los importes de cada fila corresponden a su contribución al pipeline abierto sin etapa G.',72,1057,18,GRAY);draw(all.length+' oportunidades con movimiento',1848,1057,18,GRAY,'400','right');return el;
  }
+ function spacedLabels(labels,measure,gap=20){
+  if(!labels.length)return [];
+  const selected=[0],last=labels.length-1;
+  if(!last)return selected;
+  let edge=labels[0].x+measure(labels[0].text)/2;
+  const lastLeft=labels[last].x-measure(labels[last].text)/2;
+  for(let i=1;i<last;i++){
+   const half=measure(labels[i].text)/2;
+   if(labels[i].x-half>=edge+gap&&labels[i].x+half+gap<=lastLeft){selected.push(i);edge=labels[i].x+half;}
+  }
+  if(lastLeft>=edge+gap)selected.push(last);
+  else selected.splice(0,selected.length,last);
+  return selected;
+ }
  async function evolutionCanvas(ctx,logoImage,canvasElement){
   const el=canvasElement||document.createElement('canvas');el.width=1920;el.height=1080;const g=el.getContext('2d'),rows=C.evolutionSeries(ctx),last=rows.at(-1);
   const draw=(text,x,y,size=22,color=NAVY,weight='400',align='left')=>{g.fillStyle='#'+color;g.font=weight+' '+size+'px Inter, Arial';g.textAlign=align;g.fillText(String(text),x,y);g.textAlign='left';};
@@ -164,7 +178,12 @@
   const start=rows[0]?Date.parse(rows[0].date):Date.parse(ctx.date),end=rows.at(-1)?Date.parse(rows.at(-1).date):start,dateSpan=end-start||86400000,x=r=>rows.length===1?(left+right)/2:left+(Date.parse(r.date)-start)/dateSpan*(right-left),y=v=>bottom-(v-lo)/span*(bottom-top);
   for(let i=0;i<=4;i++){const v=lo+span*i/4,yy=y(v);g.strokeStyle='#E2E8F0';g.lineWidth=1;g.beginPath();g.moveTo(left,yy);g.lineTo(right,yy);g.stroke();draw(new Intl.NumberFormat('es-ES',{notation:'compact',maximumFractionDigits:1}).format(v)+' €',left-20,yy+7,18,GRAY,'400','right');}
   rows.forEach((r,i)=>{const p=rows[i-1];if(p&&p.amount!==null&&r.amount!==null){g.strokeStyle='#'+BLUE;g.lineWidth=4;g.setLineDash(r.missingDays>0?[9,7]:[]);g.beginPath();g.moveTo(x(p),y(p.amount));g.lineTo(x(r),y(r.amount));g.stroke();g.setLineDash([]);}if(r.amount!==null){g.fillStyle='#'+BLUE;g.beginPath();g.arc(x(r),y(r.amount),5,0,Math.PI*2);g.fill();}else{draw('Sin importe',x(r),bottom-14,15,GRAY,'400','center');}});
-  const labelIndexes=new Set(rows.length<=7?rows.map((_,i)=>i):[0,rows.length-1,...Array.from({length:5},(_,i)=>Math.round((i+1)*(rows.length-1)/6))]);labelIndexes.forEach(i=>draw(fmtDate(rows[i].date),x(rows[i]),705,18,GRAY,'400','center'));
+  // Dates retain their time-scaled positions. Reserve the endpoints, then
+  // include interior labels only when their measured bounds leave a gap.
+  g.font='400 18px Inter, Arial';
+  const dateLabels=rows.map(r=>({text:fmtDate(r.date),x:x(r)}));
+  const labelIndexes=spacedLabels(dateLabels,t=>g.measureText(t).width,20);
+  labelIndexes.forEach(i=>draw(dateLabels[i].text,dateLabels[i].x,705,18,GRAY,'400','center'));
   if(!rows.length)draw('Sin listados guardados en este periodo.',left,500,26,GRAY);draw('Último listado disponible por periodo. Periodo actual posiblemente incompleto. Trazo discontinuo: días sin listado.',72,748,18,GRAY);
   draw('Evolución desde el primer listado',72,788,25,NAVY,'600');g.fillStyle='#'+NAVY;g.fillRect(72,805,1776,35);
   [['Fecha',92,'left'],['SaaS Booking',690,'right'],['Oportunidades',970,'right'],['Variación opps desde inicio',1290,'right'],['Variación desde inicio',1828,'right']].forEach(([t,x,a])=>draw(t,x,830,19,'FFFFFF','500',a));
@@ -178,6 +197,6 @@
   return pptx.write({outputType:'blob',compression:true});
  }
 
- return {workbook,canvas,evolutionCanvas,varianceCanvas,varianceSlideRows,presentation,chartXML,addNativeCharts,fmtDate,money};
+ return {workbook,canvas,evolutionCanvas,varianceCanvas,varianceSlideRows,spacedLabels,presentation,chartXML,addNativeCharts,fmtDate,money};
 });
 
