@@ -205,7 +205,7 @@
   for(const r of ctx.current.filter(C.isLost).slice().sort((a,b)=>a.stage.localeCompare(b.stage)||a.account.localeCompare(b.account))){
    const identity=wrap(r.account,26).concat(wrap(r.opportunity,26)),comment=wrap(r.next_step?.trim()||'Sin comentario en Salesforce.',76);
    const lines=Math.max(identity.length,comment.length);
-   for(let offset=0;offset<lines;offset+=17){const left=identity.slice(offset,offset+17),right=comment.slice(offset,offset+17),height=Math.max(left.length,right.length,1)*0.21+0.48;
+   for(let offset=0;offset<lines;offset+=17){const left=identity.slice(offset,offset+17);if(offset>0&&!left.length)left.push(...wrap(r.account,26).slice(0,4));const right=comment.slice(offset,offset+17),height=Math.max(left.length,right.length,1)*0.21+0.48;
     if(page.length&&used+height>4.68){pages.push(page);page=[];used=0;}
     page.push({record:r,identity:left.join('\n'),comment:right.join('\n'),continuation:offset>0,height});used+=height;
    }
