@@ -197,6 +197,55 @@
   return pptx.write({outputType:'blob',compression:true});
  }
 
- return {workbook,canvas,evolutionCanvas,varianceCanvas,varianceSlideRows,spacedLabels,presentation,chartXML,addNativeCharts,fmtDate,money};
+
+ // Dedicated read-only report: all selected Closed Lost and Closed No Decision records.
+ function outcomeReportPages(ctx){
+  const wrap=(value,width)=>String(value??'').replace(/\r\n?/g,'\n').split('\n').flatMap(line=>{const lines=[];let rest=line;while(rest.length>width){let at=rest.lastIndexOf(' ',width);if(at<width/2)at=width;lines.push(rest.slice(0,at));rest=rest.slice(at).replace(/^ +/,'');}lines.push(rest);return lines;});
+  const pages=[];let page=[],used=0;
+  for(const r of ctx.current.filter(C.isLost).slice().sort((a,b)=>a.stage.localeCompare(b.stage)||a.account.localeCompare(b.account))){
+   const identity=wrap(r.account,26).concat(wrap(r.opportunity,26)),comment=wrap(r.next_step?.trim()||'Sin comentario en Salesforce.',76);
+   const lines=Math.max(identity.length,comment.length);
+   for(let offset=0;offset<lines;offset+=17){const left=identity.slice(offset,offset+17),right=comment.slice(offset,offset+17),height=Math.max(left.length,right.length,1)*0.21+0.48;
+    if(page.length&&used+height>4.68){pages.push(page);page=[];used=0;}
+    page.push({record:r,identity:left.join('\n'),comment:right.join('\n'),continuation:offset>0,height});used+=height;
+   }
+  }
+  if(page.length)pages.push(page);return pages;
+ }
+ async function outcomesPresentation(ctx,logoImage,PptxGenJS){
+  let logoData=null;if(logoImage){const el=document.createElement('canvas');el.width=logoImage.naturalWidth;el.height=logoImage.naturalHeight;el.getContext('2d').drawImage(logoImage,0,0);logoData=el.toDataURL('image/png');}const pages=outcomeReportPages(ctx);if(!pages.length)throw Error('Sin Perdidas ni No decisi�n para exportar en el listado seleccionado.');
+  const pptx=new PptxGenJS();pptx.layout='LAYOUT_WIDE';pptx.author='BDFlow';pptx.company='Cegid';pptx.lang='es-ES';pptx.title='Perdidas y No decisi�n Reforma Laboral '+fmtDate(ctx.date);
+  const rows=ctx.current.filter(C.isLost),lost=rows.filter(r=>r.stage==='Closed Lost'),undecided=rows.filter(r=>r.stage==='Closed No Decision');
+  const total=items=>items.some(r=>C.saas(r)===null)?null:items.reduce((n,r)=>n+C.cents(C.saas(r)),0)/100;
+  const navy='18234B',blue='2962FF',gray='5F6B7A';
+  const text=(slide,value,x,y,w,h,options={})=>slide.addText(String(value),{x,y,w,h,fontFace:'Arial',fontSize:12,color:navy,margin:0,breakLine:false,valign:'top',...options});
+  pages.forEach((page,index)=>{
+   const slide=pptx.addSlide();slide.background={color:'FFFFFF'};
+   text(slide,'Perdidas y No decisi�n',0.5,0.3,10.5,0.45,{fontSize:25,bold:true,color:blue});
+   if(logoData)slide.addImage({data:logoData,x:11.75,y:0.28,w:1.05,h:0.4});
+   text(slide,'Reforma Laboral | Listado '+fmtDate(ctx.date)+' | '+ctx.scopeLabel,0.5,0.88,12.2,0.38,{fontSize:11,color:gray});
+   text(slide,'Perdidas: '+lost.length+' | '+money(total(lost))+'     No decisi�n: '+undecided.length+' | '+money(total(undecided))+'     Total: '+rows.length+' | '+money(total(rows)),0.5,1.3,12.2,0.4,{fontSize:13,bold:true});
+   slide.addShape(pptx.ShapeType.rect,{x:0.5,y:1.88,w:12.33,h:0.34,fill:{color:navy},line:{color:navy}});
+   text(slide,'Cuenta / oportunidad / estado',0.62,1.95,3.05,0.2,{fontSize:10,bold:true,color:'FFFFFF'});
+   text(slide,'SaaS Booking',3.75,1.95,1.35,0.2,{fontSize:10,bold:true,color:'FFFFFF'});
+   text(slide,'Comentario Salesforce (Siguiente paso)',5.35,1.95,7.2,0.2,{fontSize:10,bold:true,color:'FFFFFF'});
+   let y=2.28;
+   page.forEach((item,i)=>{
+    const r=item.record,state=r.stage==='Closed Lost'?'Perdida':'No decisi�n';
+    slide.addShape(pptx.ShapeType.rect,{x:0.5,y,w:12.33,h:item.height,fill:{color:i%2?'F2F5FB':'FFFFFF'},line:{color:'E2E8F0',width:0.5}});
+    text(slide,state+(item.continuation?' (continuaci�n)':''),0.62,y+0.07,3,0.22,{fontSize:10,bold:true,color:r.stage==='Closed Lost'?'B42336':blue});
+    text(slide,item.identity,0.62,y+0.34,3,Math.max(0.21,item.height-0.39));
+    text(slide,item.continuation?'':money(C.saas(r)),3.75,y+0.1,1.4,0.3,{bold:true,fontSize:11});
+    text(slide,item.comment,5.35,y+0.1,7.22,item.height-0.15);
+    y+=item.height;
+   });
+   text(slide,'Comentarios del listado seleccionado. Los importes no se suman de nuevo en las continuaciones.',0.5,7.13,11.3,0.2,{fontSize:9,color:gray});
+   text(slide,(index+1)+' / '+pages.length,11.9,7.13,0.9,0.2,{fontSize:9,color:gray,align:'right'});
+  });
+  return pptx.write({outputType:'blob',compression:true});
+ }
+
+
+ return {outcomeReportPages,outcomesPresentation,workbook,canvas,evolutionCanvas,varianceCanvas,varianceSlideRows,spacedLabels,presentation,chartXML,addNativeCharts,fmtDate,money};
 });
 
