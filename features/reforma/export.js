@@ -198,54 +198,25 @@
  }
 
 
- // Dedicated read-only report: all selected Closed Lost and Closed No Decision records.
- function outcomeReportPages(ctx){
-  const wrap=(value,width)=>String(value??'').replace(/\r\n?/g,'\n').split('\n').flatMap(line=>{const lines=[];let rest=line;while(rest.length>width){let at=rest.lastIndexOf(' ',width);if(at<width/2)at=width;lines.push(rest.slice(0,at));rest=rest.slice(at).replace(/^ +/,'');}lines.push(rest);return lines;});
-  const pages=[];let page=[],used=0;
-  for(const r of ctx.current.filter(C.isLost).slice().sort((a,b)=>a.stage.localeCompare(b.stage)||a.account.localeCompare(b.account))){
-   const identity=wrap(r.account,26).concat(wrap(r.opportunity,26)),comment=wrap(r.next_step?.trim()||'Sin comentario en Salesforce.',76);
-   const lines=Math.max(identity.length,comment.length);
-   for(let offset=0;offset<lines;offset+=17){const left=identity.slice(offset,offset+17);if(offset>0&&!left.length)left.push(...wrap(r.account,26).slice(0,4));const right=comment.slice(offset,offset+17),height=Math.max(left.length,right.length,1)*0.21+0.48;
-    if(page.length&&used+height>4.68){pages.push(page);page=[];used=0;}
-    page.push({record:r,identity:left.join('\n'),comment:right.join('\n'),continuation:offset>0,height});used+=height;
-   }
-  }
-  if(page.length)pages.push(page);return pages;
- }
- async function outcomesPresentation(ctx,logoImage,PptxGenJS){
-  let logoData=null;if(logoImage){const el=document.createElement('canvas');el.width=logoImage.naturalWidth;el.height=logoImage.naturalHeight;el.getContext('2d').drawImage(logoImage,0,0);logoData=el.toDataURL('image/png');}const pages=outcomeReportPages(ctx);if(!pages.length)throw Error('Sin Perdidas ni No decisi�n para exportar en el listado seleccionado.');
-  const pptx=new PptxGenJS();pptx.layout='LAYOUT_WIDE';pptx.author='BDFlow';pptx.company='Cegid';pptx.lang='es-ES';pptx.title='Perdidas y No decisi�n Reforma Laboral '+fmtDate(ctx.date);
-  const rows=ctx.current.filter(C.isLost),lost=rows.filter(r=>r.stage==='Closed Lost'),undecided=rows.filter(r=>r.stage==='Closed No Decision');
-  const total=items=>items.some(r=>C.saas(r)===null)?null:items.reduce((n,r)=>n+C.cents(C.saas(r)),0)/100;
-  const navy='18234B',blue='2962FF',gray='5F6B7A';
-  const text=(slide,value,x,y,w,h,options={})=>slide.addText(String(value),{x,y,w,h,fontFace:'Arial',fontSize:12,color:navy,margin:0,breakLine:false,valign:'top',...options});
-  pages.forEach((page,index)=>{
-   const slide=pptx.addSlide();slide.background={color:'FFFFFF'};
-   text(slide,'Perdidas y No decisi�n',0.5,0.3,10.5,0.45,{fontSize:25,bold:true,color:blue});
-   if(logoData)slide.addImage({data:logoData,x:11.75,y:0.28,w:1.05,h:0.4});
-   text(slide,'Reforma Laboral | Listado '+fmtDate(ctx.date)+' | '+ctx.scopeLabel,0.5,0.88,12.2,0.38,{fontSize:11,color:gray});
-   text(slide,'Perdidas: '+lost.length+' | '+money(total(lost))+'     No decisi�n: '+undecided.length+' | '+money(total(undecided))+'     Total: '+rows.length+' | '+money(total(rows)),0.5,1.3,12.2,0.4,{fontSize:13,bold:true});
-   slide.addShape(pptx.ShapeType.rect,{x:0.5,y:1.88,w:12.33,h:0.34,fill:{color:navy},line:{color:navy}});
-   text(slide,'Cuenta / oportunidad / estado',0.62,1.95,3.05,0.2,{fontSize:10,bold:true,color:'FFFFFF'});
-   text(slide,'SaaS Booking',3.75,1.95,1.35,0.2,{fontSize:10,bold:true,color:'FFFFFF'});
-   text(slide,'Comentario Salesforce (Siguiente paso)',5.35,1.95,7.2,0.2,{fontSize:10,bold:true,color:'FFFFFF'});
-   let y=2.28;
-   page.forEach((item,i)=>{
-    const r=item.record,state=r.stage==='Closed Lost'?'Perdida':'No decisi�n';
-    slide.addShape(pptx.ShapeType.rect,{x:0.5,y,w:12.33,h:item.height,fill:{color:i%2?'F2F5FB':'FFFFFF'},line:{color:'E2E8F0',width:0.5}});
-    text(slide,state+(item.continuation?' (continuaci�n)':''),0.62,y+0.07,3,0.22,{fontSize:10,bold:true,color:r.stage==='Closed Lost'?'B42336':blue});
-    text(slide,item.identity,0.62,y+0.34,3,Math.max(0.21,item.height-0.39));
-    text(slide,item.continuation?'':money(C.saas(r)),3.75,y+0.1,1.4,0.3,{bold:true,fontSize:11});
-    text(slide,item.comment,5.35,y+0.1,7.22,item.height-0.15);
-    y+=item.height;
-   });
-   text(slide,'Comentarios del listado seleccionado. Los importes no se suman de nuevo en las continuaciones.',0.5,7.13,11.3,0.2,{fontSize:9,color:gray});
-   text(slide,(index+1)+' / '+pages.length,11.9,7.13,0.9,0.2,{fontSize:9,color:gray,align:'right'});
-  });
-  return pptx.write({outputType:'blob',compression:true});
+ async function outcomesWorkbook(ctx,ExcelJS,logoBytes){
+  const records=ctx.current.filter(C.isLost).slice().sort((a,b)=>a.stage.localeCompare(b.stage)||a.account.localeCompare(b.account));
+  if(!records.length)throw Error('Sin Perdidas ni No decisión para exportar en el listado seleccionado.');
+  const book=new ExcelJS.Workbook();book.creator='BDFlow';book.company='Cegid';book.title='Perdidas y No decisión Reforma Laboral';book.created=new Date();
+  const logo=logoBytes?book.addImage({buffer:logoBytes,extension:'png'}):null,sh=book.addWorksheet('Perdidas y No decisión');
+  styleSheet(sh,'Perdidas y No decisión',logo,{...ctx,previousDate:null},7);
+  const sum=items=>items.some(r=>C.saas(r)===null)?null:items.reduce((n,r)=>n+C.cents(C.saas(r)),0)/100;
+  const categories=[['Perdidas',records.filter(r=>r.stage==='Closed Lost')],['No decisión',records.filter(r=>r.stage==='Closed No Decision')],['Total',records]];
+  categories.forEach(([label,items],i)=>{const start=1+i*2;sh.mergeCells(6,start,6,start+1);sh.getCell(6,start).value=label+': '+items.length+' oportunidades';sh.getCell(6,start).font={name:'Inter',size:12,bold:true,color:{argb:NAVY}};sh.mergeCells(7,start,7,start+1);const cell=sh.getCell(7,start);cell.value=sum(items)??'No disponible';cell.numFmt='#,##0.00 "€"';cell.font={name:'Inter',size:18,bold:true,color:{argb:BLUE}};});sh.getRow(7).height=30;
+  sh.mergeCells('A9:G9');sh.getCell('A9').value='Importe SaaS Booking registrado en cada listado. Las primeras apariciones y las ausencias se distinguen de los cambios de estado.';sh.getCell('A9').font={name:'Inter',size:11,bold:true,color:{argb:NAVY}};sh.getCell('A9').fill={type:'pattern',pattern:'solid',fgColor:{argb:'EAF0FF'}};sh.getCell('A9').alignment={wrapText:true,vertical:'middle'};sh.getRow(9).height=32;
+  const headers=['Estado','Cuenta','Oportunidad','SaaS Booking','Fecha de cierre','Propietario','Comentario Salesforce (Siguiente paso)'];
+  table(sh,headers,records.map(r=>[r.stage==='Closed Lost'?'Perdida':'No decisión',r.account,r.opportunity,C.saas(r)??'No disponible',fmtDate(r.close_date),r.owner||'Vacío en Salesforce',r.next_step?.trim()||'Sin comentario en Salesforce.']),[17,32,48,20,18,28,95],11);
+  sh.getColumn(4).numFmt='#,##0.00 "€"';
+  const widths=[17,32,48,20,18,28,95];records.forEach((r,i)=>{const row=sh.getRow(12+i);let lines=1;row.eachCell((cell,col)=>{cell.alignment={wrapText:true,vertical:'top'};cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:i%2?'F2F5FB':'FFFFFF'}};lines=Math.max(lines,...String(cell.value??'').split(/\r?\n/).map(t=>Math.ceil(t.length/(widths[col-1]*0.8))||1));});row.height=Math.min(409,Math.max(42,lines*15+12));row.getCell(1).font={name:'Inter',size:11,bold:true,color:{argb:r.stage==='Closed Lost'?'B42336':BLUE}};});
+  sh.pageSetup={orientation:'landscape',paperSize:9,fitToPage:true,fitToWidth:1,fitToHeight:0,printTitlesRow:'11:11',printArea:'A1:G'+(records.length+11),margins:{left:0.25,right:0.25,top:0.4,bottom:0.4,header:0.2,footer:0.2}};
+  sh.headerFooter={oddFooter:'&LReforma Laboral | '+fmtDate(ctx.date)+'&RPágina &P de &N'};
+  return book.xlsx.writeBuffer();
  }
 
-
- return {outcomeReportPages,outcomesPresentation,workbook,canvas,evolutionCanvas,varianceCanvas,varianceSlideRows,spacedLabels,presentation,chartXML,addNativeCharts,fmtDate,money};
+ return {outcomesWorkbook,workbook,canvas,evolutionCanvas,varianceCanvas,varianceSlideRows,spacedLabels,presentation,chartXML,addNativeCharts,fmtDate,money};
 });
 
