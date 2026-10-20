@@ -92,9 +92,9 @@
 
  function closureMonths(rows){const groups=new Map();for(const r of rows){if(status(r)!=='En trabajo')continue;const month=r.close_date?r.close_date.slice(0,7):null;const group=groups.get(month)||[];group.push(r);groups.set(month,group);}return [...groups].sort(([a],[b])=>a===null?1:b===null?-1:a.localeCompare(b)).map(([month,records])=>({month,count:records.length,amount:sumSaas(records)}));}
 
- const alertTypes={stageG:'Etapa G',zero:'Importe SaaS Booking a cero',overdue:'Cierre vencido'};
- function planAlerts(rows,reviews,asOf){const result=[];for(const r of rows){if(status(r)!=='En trabajo')continue;const add=code=>result.push({code,type:alertTypes[code],record:r,review:null});const stageCode=text(r.stage).match(/^([A-H])\s*-/i)?.[1].toUpperCase();if(stageCode==='G')add('stageG');if(saas(r)===0)add('zero');if(r.close_date&&r.close_date<asOf)add('overdue');}return result;}
- function alertSummary(alerts){const descriptions={stageG:'en etapa G',zero:'abiertas a 0 €',overdue:'cierres vencidos'};return Object.keys(alertTypes).map(code=>({code,count:alerts.filter(a=>a.code===code).length,label:descriptions[code]})).filter(v=>v.count);}
+ const alertTypes={stageG:'Etapa G',zero:'Importe SaaS Booking a cero',overdue:'Cierre vencido',stageDE:'Etapa D/E con cierre en el mes actual'};
+ function planAlerts(rows,reviews,asOf,today=new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Madrid'}).format(new Date())){const month=today.slice(0,7),result=[];for(const r of rows){if(status(r)!=='En trabajo')continue;const add=code=>result.push({code,type:alertTypes[code],record:r,review:null});const stageCode=text(r.stage).match(/^([A-H])\s*-/i)?.[1].toUpperCase();if(stageCode==='G')add('stageG');if(['D','E'].includes(stageCode)&&r.close_date?.slice(0,7)===month)add('stageDE');if(saas(r)===0)add('zero');if(r.close_date&&r.close_date<asOf)add('overdue');}return result;}
+ function alertSummary(alerts){const descriptions={stageG:'en etapa G',zero:'abiertas a 0 €',overdue:'cierres vencidos',stageDE:'en D/E con cierre este mes'};return Object.keys(alertTypes).map(code=>({code,count:alerts.filter(a=>a.code===code).length,label:descriptions[code]})).filter(v=>v.count);}
  function summarize(imports,snapshots,selection,previousSelection,scope=TARGET,reviews=[],amounts=[]){
   const amendments=new Map(amounts.map(a=>[a.snapshot_id,a]));
   const ordered=[...imports].sort(importCompare);
