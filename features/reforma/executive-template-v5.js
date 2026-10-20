@@ -12,11 +12,12 @@ window.BDExecutiveTemplate=(function(){
  function relsPath(path){const parts=path.split('/'),name=parts.pop();return parts.join('/')+'/_rels/'+name+'.rels';}
  function relationship(xml,id){return [...xml.matchAll(/<Relationship\b[^>]*\/>/g)].map(v=>v[0]).find(t=>attr(t,'Id')===id)||null;}
  function slides(zip){return Object.keys(zip.files).filter(p=>/^ppt\/slides\/slide\d+\.xml$/.test(p)).sort((a,b)=>+a.match(/slide(\d+)/)[1]-+b.match(/slide(\d+)/)[1]);}
- async function validate(bytes,JSZip){if(bytes.byteLength>20*1024*1024)throw Error('La plantilla supera los 20 MB.');const zip=await JSZip.loadAsync(bytes);if(Object.keys(zip.files).length>3000||!zip.file('ppt/presentation.xml'))throw Error('Selecciona un PowerPoint PPTX válido.');if(slides(zip).length!==3)throw Error('Usa tu PowerPoint ejecutivo de tres diapositivas como plantilla.');for(const path of slides(zip)){if((await zip.file(path).async('string')).length>5000000)throw Error('La plantilla es demasiado compleja.');}return zip;}
+ async function orderedSlides(zip){const p='ppt/presentation.xml',xml=await zip.file(p).async('string'),rels=await zip.file(relsPath(p)).async('string');return [...xml.matchAll(/<p:sldId\b[^>]*\br:id="([^"]+)"[^>]*\/>/g)].map(v=>{const r=relationship(rels,v[1]);if(!r)throw Error('Orden de diapositivas no válido.');return resolve(p,attr(r,'Target'));});}
+ async function validate(bytes,JSZip){if(bytes.byteLength>20*1024*1024)throw Error('La plantilla supera los 20 MB.');const zip=await JSZip.loadAsync(bytes);if(Object.keys(zip.files).length>3000||!zip.file('ppt/presentation.xml'))throw Error('Selecciona un PowerPoint PPTX válido.');const paths=await orderedSlides(zip);if(![3,4].includes(paths.length)||paths.length!==slides(zip).length)throw Error('Usa el PowerPoint ejecutivo de tres diapositivas, con portada opcional.');for(const path of paths){if(!zip.file(path)||(await zip.file(path).async('string')).length>5000000)throw Error('La plantilla es demasiado compleja.');}return zip;}
  function updateSlide(xml,index,m,scaleX=1,scaleY=1){
   const E=window.BDExecutive,signed=n=>n==null?'No disponible':(n>0?'+':'')+E.money(n),d=E.date,roles=index===0?[
    [.65,1.61,'Reforma Laboral México | '+d(m.first.date)+' a '+d(m.last.date)],
-   [.88,2.78,'Inicio '+d(m.first.date)],[5.03,2.78,'Actual '+d(m.last.date)],
+   [.88,2.78,'Inicio '+d(m.first.date)+(m.first.reconstructed?' (reconstruido)':'')],[5.03,2.78,'Actual '+d(m.last.date)],
    [.88,3.16,E.money(m.first.amount)],[5.03,3.16,E.money(m.last.amount)],
    [.88,3.77,m.first.count+' oportunidades'],[5.03,3.77,m.last.count+' oportunidades'],
    [.7,4.9,signed(m.delta)+' | '+E.pct(m.percent)],[.7,5.52,(m.countDelta>0?'+':'')+m.countDelta+' oportunidades desde el inicio'],
@@ -28,15 +29,16 @@ window.BDExecutiveTemplate=(function(){
    [9.4,3.12,E.money(m.forecastTotal)],[9.4,3.92,m.concentration?E.pct(m.concentrationPercent)+' concentrado en '+new Intl.DateTimeFormat('es-ES',{month:'long',timeZone:'UTC'}).format(new Date(m.concentration.month+'-01T00:00:00Z')):'Sin concentración de importe disponible']
   ];
   const matches=[...xml.matchAll(/<p:sp\b[\s\S]*?<\/p:sp>/g)],used=new Set(),replacements=new Map();
-  for(const [x,y,value] of roles){let best=-1,score=Infinity;matches.forEach((match,i)=>{if(used.has(i)||!getText(match[0]))return;const b=bounds(match[0]),dx=Math.abs(b.x/scaleX-x),dy=Math.abs(b.y/scaleY-y);if(dx<.32&&dy<.15&&dx+dy<score){best=i;score=dx+dy;}});if(best>=0){used.add(best);replacements.set(best,setText(matches[best][0],value));}}
+  const names=index===0?[2,7,11,8,12,9,13,15,16,19,21,22,23]:index===1?[7,9,10]:[10,11];
+  for(const [role,[x,y,value]] of roles.entries()){let best=matches.findIndex((match,i)=>!used.has(i)&&attr(match[0].match(/<p:cNvPr\b[^>]*\/>/)?.[0]||'','name')==='Text '+names[role]);let score=Infinity;if(best<0)matches.forEach((match,i)=>{if(used.has(i)||!getText(match[0]))return;const b=bounds(match[0]),dx=Math.abs(b.x/scaleX-x),dy=Math.abs(b.y/scaleY-y);if(dx<.32&&dy<.15&&dx+dy<score){best=i;score=dx+dy;}});if(best>=0){used.add(best);replacements.set(best,setText(matches[best][0],value));}}
   if(index===1){matches.forEach((match,i)=>{const b=bounds(match[0]),t=getText(match[0]);if(b.y/scaleY<2&&/fechas guardadas/.test(t))replacements.set(i,setText(match[0],t.replace(/\d+ fechas guardadas/,m.points.length+' fechas guardadas')));});}
   if(index===2){const counters=matches.map((v,i)=>({xml:v[0],i,b:bounds(v[0]),text:getText(v[0])})).filter(v=>/^\d+\s+(oportunidades|opps)$/.test(v.text.trim())&&v.b.x/scaleX<9&&Math.abs(v.b.y/scaleY-5.6)<.25).sort((a,b)=>a.b.x-b.b.x);const template=counters[0];if(template){const maxId=Math.max(100,...[...xml.matchAll(/<p:cNvPr\b[^>]*\bid="(\d+)"/g)].map(v=>+v[1]));counters.forEach((v,i)=>{if(i<m.forecast.length){let s=place(setText(v.xml,m.forecast[i].count+(m.forecast.length>4?' opps':' oportunidades')),(.8+i*7.8/m.forecast.length)*scaleX,7.8/m.forecast.length*scaleX);replacements.set(v.i,s);}else replacements.set(v.i,'');});let extra='';for(let i=counters.length;i<m.forecast.length;i++){let s=place(setText(template.xml,m.forecast[i].count+(m.forecast.length>4?' opps':' oportunidades')),(.8+i*7.8/m.forecast.length)*scaleX,7.8/m.forecast.length*scaleX).replace(/(<p:cNvPr\b[^>]*\bid=")\d+(")/,'$1'+(maxId+i+1)+'$2');extra+=s;}if(extra)xml=xml.replace('</p:spTree>',extra+'</p:spTree>');}}
   for(const [k,match] of matches.entries()){if(/\d[\d., \u00A0]*\s*(?:€|%)/.test(getText(match[0]))&&!replacements.has(k))throw Error('La plantilla contiene un importe que no se puede actualizar automáticamente. Conserva la posición de los datos de la presentación ejecutiva.');}let i=0;return xml.replace(/<p:sp\b[\s\S]*?<\/p:sp>/g,shape=>{const n=i++;return replacements.has(n)?replacements.get(n):shape;});
  }
  function updateChart(xml,labels,values){
   const cache=(tag,items,numeric)=>'<c:'+tag+'>'+(numeric?(xml.match(/<c:formatCode>[\s\S]*?<\/c:formatCode>/)?.[0]||'<c:formatCode>General</c:formatCode>'):'')+'<c:ptCount val="'+items.length+'"/>'+items.map((v,i)=>v==null?'':'<c:pt idx="'+i+'"><c:v>'+enc(v)+'</c:v></c:pt>').join('')+'</c:'+tag+'>';
-  xml=xml.replace(/<c:cat\b[^>]*>[\s\S]*?<\/c:cat>/,block=>block.replace(/<c:strCache\b[^>]*>[\s\S]*?<\/c:strCache>/,cache('strCache',labels,false)).replace(/(<c:f>[\s\S]*?\$[A-Z]+\$\d+:\$[A-Z]+\$)\d+(<\/c:f>)/,'$1'+(labels.length+1)+'$2'));
-  xml=xml.replace(/<c:val\b[^>]*>[\s\S]*?<\/c:val>/,block=>block.replace(/<c:numCache\b[^>]*>[\s\S]*?<\/c:numCache>/,cache('numCache',values,true)).replace(/(<c:f>[\s\S]*?\$[A-Z]+\$\d+:\$[A-Z]+\$)\d+(<\/c:f>)/,'$1'+(values.length+1)+'$2'));
+  xml=xml.replace(/<c:cat\b[^>]*>[\s\S]*?<\/c:cat>/,block=>block.replace(/<c:strCache\b[^>]*>[\s\S]*?<\/c:strCache>/,cache('strCache',labels,false)).replace(/(<c:f>[\s\S]*?\$[A-Z]+\$\d+:\$[A-Z]+\$)\d+(<\/c:f>)/,'$1'+Math.max(2,labels.length+1)+'$2'));
+  xml=xml.replace(/<c:val\b[^>]*>[\s\S]*?<\/c:val>/,block=>block.replace(/<c:numCache\b[^>]*>[\s\S]*?<\/c:numCache>/,cache('numCache',values,true)).replace(/(<c:f>[\s\S]*?\$[A-Z]+\$\d+:\$[A-Z]+\$)\d+(<\/c:f>)/,'$1'+Math.max(2,values.length+1)+'$2'));
   const skip=Math.max(1,Math.ceil(labels.length/7));xml=xml.replace(/<c:catAx\b[^>]*>[\s\S]*?<\/c:catAx>/,block=>/<c:tickLblSkip\b/.test(block)?block.replace(/<c:tickLblSkip\b[^>]*\/>/,'<c:tickLblSkip val="'+skip+'"/>'):block.replace('</c:catAx>','<c:tickLblSkip val="'+skip+'"/></c:catAx>'));return xml;
  }
  async function chart(zip,path,labels,values,JSZip,ExcelJS){
@@ -49,6 +51,7 @@ window.BDExecutiveTemplate=(function(){
   return null;
  }
  function numberSlide(xml,index,pagination,scaleX=1,scaleY=1){
+  let existing=false;xml=xml.replace(/<p:sp\b[\s\S]*?<\/p:sp>/g,shape=>{const nv=shape.match(/<p:cNvPr\b[^>]*\/>/)?.[0]||'';if(attr(nv,'name')==='Número de diapositiva'){existing=true;return setText(shape,index);}return shape;});if(existing)return xml;
   xml=xml.replace(/<p:sp\b[\s\S]*?<\/p:sp>/g,shape=>{const b=bounds(shape),t=getText(shape).trim();return b.y/scaleY>6.4&&/^\d+(?:\s*\/\s*\d+)?$/.test(t)?'':shape;});
   const maxId=Math.max(100,...[...xml.matchAll(/<p:cNvPr\b[^>]*\bid="(\d+)"/g)].map(v=>+v[1])),p=pagination?.patch,n=pagination?.number||{x:12.15,y:6.55,w:.5,h:.24,fontSize:9,color:'64748B'};
   const transform=(b)=>'<a:xfrm><a:off x="'+Math.round(b.x*scaleX*NS)+'" y="'+Math.round(b.y*scaleY*NS)+'"/><a:ext cx="'+Math.round(b.w*scaleX*NS)+'" cy="'+Math.round(b.h*scaleY*NS)+'"/></a:xfrm>';
@@ -57,13 +60,14 @@ window.BDExecutiveTemplate=(function(){
  }
  async function presentation(m,bytes,JSZip,ExcelJS,options={}){
   const zip=await validate(bytes,JSZip),pres=await zip.file('ppt/presentation.xml').async('string'),size=pres.match(/<p:sldSz\b[^>]*\/>/)?.[0]||'',scaleX=(+attr(size,'cx')/NS||wide)/wide,scaleY=(+attr(size,'cy')/NS||high)/high;
-  for(const [i,path] of slides(zip).entries()){
-   let xml=await zip.file(path).async('string');const pagination=await imagePagination(zip,path,xml);xml=updateSlide(xml,i,m,scaleX,scaleY);xml=numberSlide(xml,i+1,pagination,scaleX,scaleY);zip.file(path,xml);
+  const paths=await orderedSlides(zip),offset=paths.length===4?1:0;
+  for(const [position,path] of paths.entries()){
+   let xml=await zip.file(path).async('string');if(position<offset){const month=new Intl.DateTimeFormat('es-ES',{month:'short',timeZone:'UTC'}).format(new Date(m.last.date+'T00:00:00Z')).replace('.','').toUpperCase(),label='RLM '+month+' '+m.last.date.slice(2,4);xml=xml.replace(/<a:t\b[^>]*>[\s\S]*?<\/a:t>/g,t=>t.replace(/RLM\s+[A-ZÁÉÍÓÚ]{3,4}\s+\d{2}/,label));zip.file(path,xml);continue;}const i=position-offset;const pagination=/name="Número de diapositiva"/.test(xml)?null:await imagePagination(zip,path,xml);xml=updateSlide(xml,i,m,scaleX,scaleY);xml=numberSlide(xml,i+1,pagination,scaleX,scaleY);zip.file(path,xml);
    if(i===0)continue;const relFile=zip.file(relsPath(path));if(!relFile)throw Error('Falta un gráfico en la plantilla.');const relXML=await relFile.async('string'),refs=[...xml.matchAll(/<c:chart\b[^>]*\br:id="([^"]+)"/g)];if(!refs.length)throw Error('La plantilla necesita gráficos editables en las diapositivas 2 y 3.');
    const labels=i===1?m.points.map(v=>window.BDExecutive.date(v.date)):m.forecast.map(v=>new Intl.DateTimeFormat('es-ES',{month:'long',year:'numeric',timeZone:'UTC'}).format(new Date(v.month+'-01T00:00:00Z'))),values=i===1?m.points.map(v=>v.amount):m.forecast.map(v=>v.amount);
    for(const ref of refs){const r=relationship(relXML,ref[1]);if(!r)throw Error('Referencia de gráfico no válida.');await chart(zip,resolve(path,attr(r,'Target')),labels,values,JSZip,ExcelJS);}
   }
   return zip.generateAsync({type:options.outputType||'blob',compression:'DEFLATE'});
  }
- return {validate,presentation,updateSlide,updateChart,getText,setText,bounds,numberSlide,resolve};
+ return {validate,presentation,updateSlide,updateChart,getText,setText,bounds,numberSlide,resolve,orderedSlides};
 })();
