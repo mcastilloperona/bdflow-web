@@ -75,3 +75,20 @@
 .rf .rf-outcome-notice{margin:12px 0 18px;padding:14px 18px;border-left:5px solid #2962ff;border-radius:8px;background:#eaf0ff;color:#123e69;font-size:14px;font-weight:600;line-height:1.6}.rf .rf-outcome-notice button{margin-left:10px;font-weight:600}
 
 .rf .rf-alert-counts{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+
+/* Won Booking by Salesforce close date */
+.rf-won-by-date{border-top:3px solid #2962ff;min-width:0}
+.rf-won-total{margin:12px 0}.rf-won-total>strong{font-size:23px;color:#2962ff;overflow-wrap:anywhere}.rf-won-total>span{color:#64748b;font-size:13px}
+.rf-won-dates{max-height:340px;overflow:auto;overscroll-behavior:contain}
+.rf .rf-won-day{margin:0;border-top:1px solid #e2e8f0}
+.rf-won-day>summary{display:grid;grid-template-columns:minmax(100px,1fr) auto auto;gap:8px 12px;align-items:center;cursor:pointer;list-style:none;padding:12px 4px;font-size:13px}
+.rf-won-day>summary::-webkit-details-marker{display:none}
+.rf-won-day>summary:focus-visible{outline:2px solid #2962ff;outline-offset:-2px;border-radius:4px}
+.rf-won-date{font-weight:600;min-width:0;overflow-wrap:anywhere}.rf-won-date::before{content:'▸';display:inline-block;width:14px;color:#2962ff}.rf-won-day[open] .rf-won-date::before{content:'▾'}
+.rf-won-count{color:#64748b;font-size:12px}.rf-won-day>summary>strong{text-align:right;white-space:nowrap;color:#123e69}
+.rf-won-day>ul{list-style:none;padding:0 4px 8px 18px;margin:0}
+.rf-won-day li{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:9px 0;border-top:1px solid #eef3fa;font-size:12px}
+.rf-won-day li>div{min-width:0;overflow-wrap:anywhere}.rf-won-day li b,.rf-won-day li span,.rf-won-day li small{display:block}.rf-won-day li span,.rf-won-day li small{color:#64748b;margin-top:4px}.rf-won-day li>strong{flex-shrink:0;text-align:right}
+.rf-won-hint{font-size:12px;margin-bottom:0}
+@media(max-width:1100px){.rf-won-day>summary{grid-template-columns:minmax(0,1fr) auto}.rf-won-count{grid-column:1;grid-row:2;padding-left:14px}.rf-won-day>summary>strong{grid-column:2;grid-row:1/3}}
+@media(max-width:480px){.rf-won-total>strong{font-size:21px}.rf-won-day li{flex-direction:column;gap:5px}.rf-won-day li>strong{text-align:left}.rf-won-dates{max-height:320px}}
