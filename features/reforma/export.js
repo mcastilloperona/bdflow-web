@@ -103,9 +103,15 @@
   const months=ctx.closureMonths||C.closureMonths(ctx.current),monthMax=Math.max(1,...months.map(v=>v.amount||0)),step=470/Math.max(1,months.length),small=months.length>4;
   months.forEach((v,i)=>{const x=695+i*step+step/2,w=Math.min(95,step*.58),h=(v.amount||0)/monthMax*160;g.fillStyle='#'+BLUE;g.fillRect(x-w/2,872-h,w,h);draw(money(v.amount),x,859-h,small?12:17,NAVY,'400','center');const label=v.month?new Intl.DateTimeFormat('es-ES',{month:'short',year:'2-digit',timeZone:'UTC'}).format(new Date(v.month+'-01T00:00:00Z')):'Sin fecha';draw(label,x,903,small?12:17,GRAY,'400','center');draw(v.count+' opps',x,929,small?12:17,GRAY,'400','center');});if(!months.length)draw('Sin cierres previstos',695,730,20,GRAY);
   draw('Cierres '+monthLabel(ctx.date),1230,620,26,NAVY,'600');draw(ctx.monthlyClosures.length+' oportunidades   '+money(ctx.monthlyAmount),1230,653,20,GRAY);
-  g.fillStyle='#'+NAVY;g.fillRect(1230,674,618,34);draw('Cuenta',1242,697,17,'FFFFFF','600');draw('Cierre',1565,697,17,'FFFFFF','600','center');draw('SaaS Booking',1835,697,17,'FFFFFF','600','right');
-  ctx.monthlyClosures.slice(0,5).forEach((r,i)=>{const y=736+i*43;g.font='18px Inter, Arial';g.fillStyle='#'+NAVY;wrappedText(g,r.account,1242,y,235,20,2);draw(fmtDate(r.close_date),1565,y,18,r.close_date<ctx.date?'9F1239':NAVY,'400','center');if(r.close_date<ctx.date)draw('Vencida',1565,y+19,14,'9F1239','400','center');draw(money(C.saas(r)),1835,y,18,NAVY,'400','right');g.fillStyle='#EDF1F7';g.fillRect(1230,y+26,618,1);});if(!ctx.monthlyClosures.length)draw('Sin cierres previstos para este mes',1242,748,19,GRAY);
-  if(ctx.monthlyClosures.length>5)draw('5 de '+ctx.monthlyClosures.length+' cierres. Detalle: diapositivas de cierres.',1230,965,17,GRAY);
+
+  const closing=closureSummaryLayout(ctx,g);
+  for(const panel of closing.panels){const one=closing.columns===1,accountX=panel.x+panel.inset,dateX=panel.x+panel.width*(one?.58:.61),amountX=panel.x+panel.width-panel.inset,head=one?17:11;
+   g.fillStyle='#'+NAVY;g.fillRect(panel.x,674,panel.width,34);draw('Cuenta',accountX,697,head,'FFFFFF','600');draw('Cierre',dateX,697,head,'FFFFFF','600','center');draw(one?'SaaS Booking':'Booking',amountX,697,head,'FFFFFF','600','right');
+   let y=714;for(const row of panel.rows){const r=row.record,base=y+closing.size;row.lines.forEach((line,j)=>draw(line,accountX,base+j*closing.lineHeight,closing.size));draw(fmtDate(r.close_date),dateX,base,closing.size,r.close_date<ctx.date?'9F1239':NAVY,'400','center');draw(money(C.saas(r)),amountX,base,closing.size,NAVY,'400','right');y+=row.height;g.fillStyle='#EDF1F7';g.fillRect(panel.x,y-1,panel.width,.6);}
+  }
+  if(!ctx.monthlyClosures.length)draw('Sin cierres previstos para este mes',1242,748,19,GRAY);
+  else draw(ctx.monthlyClosures.length+' de '+ctx.monthlyClosures.length+' cierres. Fechas vencidas en rojo.',1230,965,13,GRAY);
+
   g.fillStyle=ctx.alerts.length?'#FFF1F2':'#F5F8FC';g.fillRect(72,983,1776,40);const alertText=ctx.alerts.length?'Alertas en '+new Set(ctx.alerts.map(v=>v.record.operation_id)).size+' oportunidades   '+C.alertSummary(ctx.alerts).map(v=>v.count+' '+v.label).join('   '):'Sin alertas detectadas';g.font='600 21px Inter, Arial';const alertFontSize=Math.min(21,21*1735/Math.max(1,g.measureText(alertText).width));draw(alertText,91,1010,alertFontSize,ctx.alerts.length?'B91C1C':GRAY,'600');
   draw('Comparación: '+(ctx.previousDate?(ctx.previousLabel||fmtDate(ctx.previousDate)):'Sin listado anterior'),72,1057,17,GRAY);draw(m.reconstructed||p.reconstructed?'SaaS Booking histórico reconstruido':m.total+' oportunidades del alcance seleccionado',1848,1057,17,GRAY,'400','right');return el;
  }
@@ -195,27 +201,18 @@
  function closureTextLines(g,value,width){
   const lines=[];for(const paragraph of String(value||'—').split(/\r?\n/)){let line='';for(const word of paragraph.split(/\s+/).filter(Boolean)){if(g.measureText(word).width>width){if(line){lines.push(line);line='';}for(const char of word){if(line&&g.measureText(line+char).width>width){lines.push(line);line='';}line+=char;}}else{const next=line?line+' '+word:word;if(line&&g.measureText(next).width>width){lines.push(line);line=word;}else line=next;}}lines.push(line||'');}return lines;
  }
- function closureReportPages(ctx,g){
-  const records=ctx.monthlyClosures.slice().sort((a,b)=>String(a.close_date||'').localeCompare(String(b.close_date||''))||a.account.localeCompare(b.account)||String(a.opportunity||'').localeCompare(String(b.opportunity||''))),pages=[];let page=[],height=0;
-  for(const [index,r] of records.entries()){
-   g.font='600 26px Inter, Arial';const account=closureTextLines(g,r.account,374);g.font='24px Inter, Arial';const opportunity=closureTextLines(g,r.opportunity,746),length=Math.max(account.length,opportunity.length);
-   for(let offset=0;offset<length;offset+=18){const count=Math.min(18,length-offset),continued=offset>0,h=Math.max(88,count*32+24+(continued?26:0));if(page.length&&height+h>630){pages.push(page);page=[];height=0;}page.push({record:r,index,account:account.slice(offset,offset+count),opportunity:opportunity.slice(offset,offset+count),continued,height:h});height+=h;}
-  }
-  if(page.length)pages.push(page);return pages;
- }
- function closureDetailCanvas(ctx,logoImage,rows,index,total,canvasElement){
-  const el=canvasElement||document.createElement('canvas');el.width=1920;el.height=1080;const g=el.getContext('2d'),draw=(text,x,y,size=24,color=NAVY,weight='400',align='left')=>{g.font=weight+' '+size+'px Inter, Arial';g.fillStyle='#'+color;g.textAlign=align;g.fillText(String(text),x,y);g.textAlign='left';};
-  g.fillStyle='#FFFFFF';g.fillRect(0,0,1920,1080);g.drawImage(logoImage,72,43,155,63);draw('Plan Reforma Laboral',275,86,42,NAVY,'600');draw('México',275,124,23,GRAY);draw('Datos del '+(ctx.selectionLabel||fmtDate(ctx.date)),1848,73,22,GRAY,'400','right');
-  draw('Cierres previstos · '+monthLabel(ctx.date),72,195,38,NAVY,'600');draw(ctx.monthlyClosures.length+' oportunidades · '+money(C.sumSaas(ctx.monthlyClosures)),72,236,25,BLUE,'600');draw('Detalle '+(index+1)+' de '+total,1848,228,24,GRAY,'400','right');
-  g.fillStyle='#'+NAVY;g.fillRect(72,266,1776,50);draw('Cuenta',88,299,23,'FFFFFF','600');draw('Oportunidad',488,299,23,'FFFFFF','600');draw('Fecha de cierre',1266,299,23,'FFFFFF','600');draw('SaaS Booking',1832,299,23,'FFFFFF','600','right');
-  let y=330;for(const [i,row] of rows.entries()){const r=row.record,overdue=r.close_date&&r.close_date<ctx.date;g.fillStyle=i%2?'#F3F6FC':'#FFFFFF';g.fillRect(72,y,1776,row.height);row.account.forEach((t,j)=>draw(t,88,y+35+j*32,26,NAVY,'600'));row.opportunity.forEach((t,j)=>draw(t,488,y+35+j*32,24));draw(fmtDate(r.close_date),1266,y+35,24,overdue?'9F1239':NAVY);if(overdue)draw('Vencida',1266,y+61,19,'9F1239');draw(money(C.saas(r)),1832,y+35,26,BLUE,'600','right');if(row.continued)draw('Continuación de la oportunidad',88,y+row.height-8,18,GRAY);g.fillStyle='#E2E8F0';g.fillRect(72,y+row.height-1,1776,1);y+=row.height;}
-  draw('Detalle completo de las oportunidades de cierre del mes, según el listado seleccionado.',72,1028,21,GRAY);draw(ctx.scopeLabel||C.scopeLabel(ctx.scope),72,1060,18,GRAY);return el;
+
+ function closureSummaryLayout(ctx,g){
+  const records=ctx.monthlyClosures,columns=records.length>18?2:1,gap=18,width=(618-(columns-1)*gap)/columns,perColumn=Math.max(1,Math.ceil(records.length/columns)),height=235,padding=Math.min(2,height/perColumn*.1);
+  const groups=Array.from({length:columns},(_,i)=>({x:1230+i*(width+gap),width,records:records.slice(i*perColumn,(i+1)*perColumn)}));
+  const build=size=>{g.font=size+'px Inter, Arial';return groups.map(group=>{const inset=columns===1?12:8,accountWidth=width*(columns===1?.45:.43)-16,dateWidth=width*.22,amountWidth=width*.24,rows=group.records.map(record=>({record,lines:closureTextLines(g,record.account,accountWidth)}));for(const row of rows)row.height=row.lines.length*size*1.15+padding;return {...group,inset,accountWidth,dateWidth,amountWidth,rows};});};
+  const fits=(groups,size)=>groups.every(group=>group.rows.reduce((n,row)=>n+row.height,0)<=height&&group.rows.every(row=>g.measureText(fmtDate(row.record.close_date)).width<=group.dateWidth&&g.measureText(money(C.saas(row.record))).width<=group.amountWidth));
+  let low=.01,high=18;for(let i=0;i<22;i++){const mid=(low+high)/2,groups=build(mid);if(fits(groups,mid))low=mid;else high=mid;}const size=low,panels=build(size);return {size,lineHeight:size*1.15,padding,columns,panels};
  }
 
  async function presentation(ctx,logoImage,PptxGenJS){
   const pptx=new PptxGenJS();pptx.layout='LAYOUT_WIDE';pptx.author='BDFlow';pptx.subject='Seguimiento Reforma Laboral';pptx.title='Seguimiento Reforma Laboral '+fmtDate(ctx.date);pptx.company='Cegid';pptx.lang='es-ES';
-  for(const [title,render] of [['Resumen Reforma Laboral',canvas],['Evolución Reforma Laboral',evolutionCanvas],['Variación del pipeline Reforma Laboral',varianceCanvas]]){const el=await render(ctx,logoImage),slide=pptx.addSlide();slide.addImage({data:el.toDataURL('image/png'),x:0,y:0,w:13.3333333333,h:7.5,altText:title+' '+fmtDate(ctx.date)});}
-  if(ctx.monthlyClosures.length>5){const measure=document.createElement('canvas').getContext('2d'),pages=closureReportPages(ctx,measure);for(const [i,rows] of pages.entries()){const el=closureDetailCanvas(ctx,logoImage,rows,i,pages.length),slide=pptx.addSlide();slide.addImage({data:el.toDataURL('image/png'),x:0,y:0,w:13.3333333333,h:7.5,altText:'Cierres previstos '+monthLabel(ctx.date)+' · Detalle '+(i+1)+' de '+pages.length+' · '+rows.map(v=>v.record.account+' | '+v.record.opportunity+' | '+fmtDate(v.record.close_date)+' | '+money(C.saas(v.record))).join('; ')});}}
+  for(const [title,render] of [['Resumen Reforma Laboral',canvas],['Evolución Reforma Laboral',evolutionCanvas],['Variación del pipeline Reforma Laboral',varianceCanvas]]){const el=await render(ctx,logoImage),slide=pptx.addSlide();slide.addImage({data:el.toDataURL('image/png'),x:0,y:0,w:13.3333333333,h:7.5,altText:title+' '+fmtDate(ctx.date)+(render===canvas?' · Cierres del mes: '+ctx.monthlyClosures.map(r=>r.account+' | '+fmtDate(r.close_date)+' | '+money(C.saas(r))).join('; '):'')});}
   return pptx.write({outputType:'blob',compression:true});
  }
 
@@ -239,6 +236,6 @@
   return book.xlsx.writeBuffer();
  }
 
- return {closureReportPages,closureDetailCanvas,outcomesWorkbook,workbook,canvas,evolutionCanvas,varianceCanvas,varianceSlideRows,spacedLabels,presentation,chartXML,addNativeCharts,fmtDate,money};
+ return {closureSummaryLayout,outcomesWorkbook,workbook,canvas,evolutionCanvas,varianceCanvas,varianceSlideRows,spacedLabels,presentation,chartXML,addNativeCharts,fmtDate,money};
 });
 
