@@ -152,8 +152,6 @@
   });
   if(!rows.length)draw('Sin variaciones del importe ni del número de abiertas.',92,492,27,GRAY);
   const grouped=rows.some(v=>v.isRemainder);draw(grouped?'Los seis movimientos de mayor impacto y el resto agrupado. Importes en euros.':'Todos los movimientos del pipeline. Importes en euros.',72,946,19,GRAY);
-  g.fillStyle='#F5F8FC';g.fillRect(72,972,1776,47);const nonGDelta=p.stageGAmount!==null&&m.stageGAmount!==null?(C.cents(m.stageGAmount)-C.cents(p.stageGAmount))/100:null;
-  draw('Etapa G (separada)',92,1003,21,NAVY,'600');draw('Anterior: '+money(p.stageGAmount),340,1003,21,NAVY);draw('Actual: '+money(m.stageGAmount),870,1003,21,BLUE,'500');draw('Variación: '+signed(nonGDelta),1828,1003,21,nonGDelta!==null&&nonGDelta<0?'9F1239':NAVY,'500','right');
   draw('Los importes de cada fila corresponden a su contribución al pipeline abierto sin etapa G.',72,1057,18,GRAY);draw(all.length+' oportunidades con movimiento',1848,1057,18,GRAY,'400','right');return el;
  }
  function spacedLabels(labels,measure,gap=20){
