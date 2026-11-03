@@ -1,4 +1,4 @@
-const CACHE='bdflow-v5-0-10';
+const CACHE='bdflow-v5-0-11';
 self.addEventListener('install',event=>{self.skipWaiting();});
 self.addEventListener('activate',event=>{
   event.waitUntil(
