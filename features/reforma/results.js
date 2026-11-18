@@ -14,7 +14,7 @@
   const states=new Map(),events=[];
   for(const i of daily)for(const r of records(i)){
    let t=states.get(r.operation_id);if(!t){t={firstWork:null,firstStage:null,everWon:false,latest:r};states.set(r.operation_id,t);}t.latest=r;
-   if(/^[A-G] - /.test(r.stage)&&!t.firstWork&&!t.everWon){t.firstWork=i.report_date;t.firstStage=r.stage;}
+   if(/^[A-G] - /.test(r.stage)&&!t.firstWork&&!t.everWon){t.firstWork=i.report_date;t.firstStage=r.stage;t.firstOwner=r.owner||'Sin responsable';}
    if(r.stage==='Closed Won'&&!t.everWon){t.everWon=true;if(t.firstWork)events.push({...r,firstWork:t.firstWork,firstStage:t.firstStage,firstWon:i.report_date,days:days(t.firstWork,i.report_date),category:category(r.opportunity)});}
   }
   const groups=rows=>Object.keys(labels).map(key=>{const list=rows.filter(r=>category(r.opportunity)===key);return {key,label:labels[key],...stats(list)};});
@@ -33,7 +33,8 @@
   const octoberStart='2026-10-01',sinceOctober={start:octoberStart,available:asof>=octoberStart,...(asof>=octoberStart?stats(won.filter(r=>r.close_date>=octoberStart)):{count:null,amount:null,ticket:null,missing:0,reconstructed:0})};
   const baseline=records(first).filter(r=>r.stage==='Closed Won'),cohort=[...states.values()].filter(t=>t.firstWork),currentConverted=events.filter(e=>states.get(e.operation_id).latest.stage==='Closed Won');
   const cumulative={...stats(events),timings:timings(events),worked:cohort.length,rate:cohort.length?events.length/cohort.length:null,currentConverted:currentConverted.length};
-  return {empty:false,first:first.report_date,closedStart,sinceOctober,asof,periods,updatedPeriods,events,won,working:latestRows.filter(r=>/^[A-G] - /.test(r.stage)),groups:groups(won),baseline:stats(baseline),cumulative,unclassified:latestRows.filter(r=>category(r.opportunity)==='unknown'),currentWon:stats(won),reopened:events.length-currentConverted.length};
+  const ownerGroups=new Map();for(const t of states.values()){if(!t.firstWork)continue;const owner=t.firstOwner;if(!ownerGroups.has(owner))ownerGroups.set(owner,{owner,worked:0,converted:0});const group=ownerGroups.get(owner);group.worked++;if(t.everWon)group.converted++;}const ownerConversion=[...ownerGroups.values()].map(g=>({...g,rate:g.worked?g.converted/g.worked:null}));
+  return {empty:false,ownerConversion,first:first.report_date,closedStart,sinceOctober,asof,periods,updatedPeriods,events,won,working:latestRows.filter(r=>/^[A-G] - /.test(r.stage)),groups:groups(won),baseline:stats(baseline),cumulative,unclassified:latestRows.filter(r=>category(r.opportunity)==='unknown'),currentWon:stats(won),reopened:events.length-currentConverted.length};
  }
 
  async function workbook(m,ExcelJS,logoBytes,prospecting=null){
@@ -49,7 +50,7 @@
   const detail=sheet('Conversiones',['Cuenta','Oportunidad','Propietario','Segmento al convertir','Primera vez en trabajo','Etapa inicial observada','Primera vez Closed Won','Cierre Salesforce','Días observados','SaaS Booking al convertir','Base del importe'],m.events.map(e=>[e.account,e.opportunity,e.owner,labels[e.category],date(e.firstWork),e.firstStage,date(e.firstWon),date(e.close_date),e.days,C.saas(e),C.amountBasisLabel(e)]),[32,60,30,25,24,30,26,23,19,28,48]);detail.getColumn(10).numFmt='#,##0.00 "€"';
   const unknown=sheet('Sin clasificar',['Cuenta','Oportunidad','Etapa','SaaS Booking','Cierre Salesforce','Propietario'],m.unclassified.map(r=>[r.account,r.opportunity,r.stage,C.saas(r),date(r.close_date),r.owner]),[32,65,30,24,23,32]);unknown.getColumn(4).numFmt='#,##0.00 "€"';
   const totals=sheet('Totales',['Ámbito','Desde','Información al','Ganadas','SaaS Booking ganado','Ticket medio total','Importes no disponibles','Importes reconstruidos'],[['Histórico disponible en el listado',date(m.closedStart),date(m.asof),m.currentWon.count,m.currentWon.amount,m.currentWon.ticket,m.currentWon.missing,m.currentWon.reconstructed],['Desde octubre de 2026'+(m.sinceOctober.available?'':' (periodo aún no iniciado)'),date(m.sinceOctober.start),date(m.asof),m.sinceOctober.count,m.sinceOctober.amount,m.sinceOctober.ticket,m.sinceOctober.missing,m.sinceOctober.reconstructed]],[45,22,22,18,26,26,26,26]);for(const c of [5,6])totals.getColumn(c).numFmt='#,##0.00 "€"';totals.getCell(5,1).value+=' Ticket medio total = suma del SaaS Booking ganado / número de ganadas del ámbito; no es la media de los tickets mensuales. Histórico disponible según el listado seleccionado, sin presuponer cobertura exhaustiva.';
-  if(prospecting?.available)sheet('Prospección',['Fecha de llamada','Registros','Corte del reporte','Estado del registro','Fuente','Observaciones'],prospecting.rows.map(r=>[date(r.date),r.count,date(prospecting.asof),prospecting.complete?'Marcado como actualizado':'Actualización pendiente de confirmar',prospecting.source,prospecting.notes]),[24,18,24,42,45,65]);
+  if(prospecting?.available)sheet('Prospección',['Fecha de llamada','Responsable','Registros','Fecha del reporte','Estado del registro','Fuente','Observaciones'],prospecting.rows.map(r=>[date(r.date),r.caller||'Sin desglose',r.count,date(prospecting.asof),prospecting.complete?'Marcado como actualizado':'Actualización pendiente de confirmar',prospecting.source,prospecting.notes]),[24,28,18,24,42,45,65]);
   return book.xlsx.writeBuffer();
  }
  return {model,category,stats,timings,labels,workbook};

@@ -1,4 +1,12 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),P=require('../prospecting.js');
+test('named Excel columns preserve blanks and validate totals through a save round trip',()=>{
+ const text='Fecha\tAna Pérez\tLuis Díaz\tTotal general\n01/10/2026\t2\t\t2\n02/10/2026\t3\t7\t10';
+ const rows=P.parse(text,'2026-10-02');assert.deepEqual(P.parse(P.serialize(rows),'2026-10-02'),rows);
+ const m=P.model([{report_date:'2026-10-02',entries_text:P.serialize(rows)}],'2026-10-02','2026-10-01');assert.equal(m.total,12);assert.deepEqual(m.people.map(p=>[p.name,p.count,p.activeDays]),[['Luis Díaz',7,1],['Ana Pérez',5,2]]);
+ assert.throws(()=>P.parse(text.replace('3\t7\t10','3\t7\t9'),'2026-10-02'),/total/);
+ assert.throws(()=>P.parse('Fecha\tAna\tana\n01/10/2026\t1\t2','2026-10-02'),/únicos/);
+ assert.equal(P.conversion('Ana Pérez',[{owner:'Ana María PEREZ',worked:10}]).worked,10);assert.equal(P.conversion('Ana Pérez',[{owner:'Ana PEREZ'},{owner:'Ana María PEREZ'}]),null);
+});
 test('prospecting validates calendar dates, whole counts, cutoff and duplicate rows',()=>{
  assert.deepEqual(P.parse('Fecha\tTotal\n01/10/2026\t0\n2026-10-02;12','2026-10-02'),[{date:'2026-10-01',count:0},{date:'2026-10-02',count:12}]);
  for(const text of ['31/02/2026 1','2026-10-03 2','2026-10-01 -1','2026-10-01 1.5','2026-10-01 1\n2026-10-01 2','2026-10-01 2 3','2026-10-01 100001'])assert.throws(()=>P.parse(text,'2026-10-02'));
