@@ -1,7 +1,7 @@
 (function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./core.js'));else root.ReformaResults=factory(root.ReformaCore);})(typeof globalThis!=='undefined'?globalThis:this,function(C){
  'use strict';
  const labels={new:'Nuevo cliente',bi:'Base instalada',unknown:'Sin clasificar'};
- function category(name){const v=String(name||''),n=/(^|[^a-z0-9])new\s*cli([^a-z0-9]|$)/i.test(v),b=/(^|[^a-z0-9])(bi|cross|crossell|crosssell|xsell|x[-_ ]?cross)([^a-z0-9]|$)/i.test(v);return n===b?'unknown':n?'new':'bi';}
+ function category(name){const v=String(name||''),n=/(^|[^a-z0-9])(new\s*clic?|nexcli|necli)([^a-z0-9]|$)/i.test(v),b=/(^|[^a-z0-9])(bi|cross|crossell|crosssell|xsell|x[-_ ]?cross)([^a-z0-9]|$)/i.test(v);return n===b?'unknown':n?'new':'bi';}
  const days=(a,b)=>Math.round((Date.parse(b+'T00:00:00Z')-Date.parse(a+'T00:00:00Z'))/86400000);
  function stats(rows){const amount=C.sumSaas(rows),count=rows.length;return {count,amount,ticket:count&&amount!==null?amount/count:null,missing:rows.filter(r=>C.saas(r)===null).length,reconstructed:rows.filter(r=>r.amount_basis==='saas_reconstructed').length};}
  function timings(events){const values=events.map(e=>e.days).filter(Number.isFinite).sort((a,b)=>a-b),n=values.length;return {sample:n,mean:n?values.reduce((a,b)=>a+b,0)/n:null,median:n?(values[Math.floor(n/2)]+values[Math.floor((n-1)/2)])/2:null};}
