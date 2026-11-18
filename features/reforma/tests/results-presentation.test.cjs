@@ -6,12 +6,13 @@ const calls=[{id:'p',report_date:'2026-11-17',entries_text:'2026-09-28 1\n2026-1
 const template=()=>fs.readFileSync(require.resolve('../assets/results-template.pptx'));
 test('ranking uses actual named calls and opportunity cohorts without attributing calls to sales',()=>{
  const m=R.model(imports,snapshots,'n');m.ownerConversion=[{owner:'Ana María PEREZ',worked:10,converted:2,rate:0.2},{owner:'Luis DIAZ',worked:4,converted:0,rate:0}];
- const named=[{report_date:'2026-11-17',entries_text:'Fecha\tAna Pérez\tLuis Díaz\n01/10/2026\t2\t8'}],plan=D.plan(m,named),slide=plan.slides[7];assert.equal(slide.title,'Llamadas y conversión por responsable');assert.deepEqual(slide.blocks[0].values[1],['Luis Díaz','8','80,0 %','4','0','0,0 %']);assert.deepEqual(slide.blocks[0].values[2],['Ana Pérez','2','20,0 %','10','2','20,0 %']);
+ m.ownerProgress=[{owner:'Ana María PEREZ',worked:10,advanced:5,steps:12},{owner:'Luis DIAZ',worked:4,advanced:1,steps:2}];
+ const named=[{report_date:'2026-11-17',entries_text:'Fecha\tAna Pérez\tLuis Díaz\n01/10/2026\t2\t8'}],plan=D.plan(m,named),slide=plan.slides[7];assert.equal(slide.title,'Llamadas y avance por responsable');assert.deepEqual(slide.blocks[0].values[1],['Ana Pérez','2','5','12','10','2','20,0 %']);assert.deepEqual(slide.blocks[0].values[2],['Luis Díaz','8','1','2','4','0','0,0 %']);
  const text=JSON.stringify(plan.slides);assert(!/[·•]/.test(text));assert(!text.includes('Cartera'));assert(!text.includes('cartera'));assert.equal(plan.slides[0].subtitle,'17/11/2026');assert(!JSON.stringify(plan.slides[2]).includes('Ticket total ='));assert(!plan.slides.some(s=>'note' in s));
 });
 test('conversion cohort belongs to the first observed owner even after reassignment or reopening',()=>{
  const rows=[row('x','s','G - Sales Ready','2026-10-20',0),row('x','o','Closed Won','2026-10-20',100),row('x','n','B - Negotiate','2026-11-30',100)];rows[0].data.owner='Ana';rows[1].data.owner='Luis';rows[2].data.owner='Luis';
- const m=R.model(imports,rows,'n');assert.deepEqual(m.ownerConversion,[{owner:'Ana',worked:1,converted:1,rate:1}]);assert.equal(m.reopened,1);
+ const m=R.model(imports,rows,'n');assert.deepEqual(m.ownerConversion,[{owner:'Ana',worked:1,converted:0,rate:0}]);assert.equal(m.reopened,1);
 });
 test('presentation plan derives changing months and amounts from selection without future reports',()=>{
  const before=JSON.stringify(snapshots),m=R.model(imports,snapshots,'n'),plan=D.plan(m,calls);assert.equal(plan.slides.length,11);assert(!JSON.stringify(plan.slides).includes('Corte'));assert(!JSON.stringify(plan.slides).includes('Fecha de corte'));assert.equal(plan.calls.total,32);assert.equal(plan.asof,'2026-11-17');assert.equal(plan.slides[0].subtitle.includes('17/11/2026'),true);assert.match(JSON.stringify(plan),/250,00/);assert(!JSON.stringify(plan).includes('350,00'));
