@@ -41,7 +41,7 @@
   if(calls.available&&calls.people.length){
    const ranked=calls.people.map(p=>({...p,conversion:P.conversion(p.name,m.ownerConversion),progress:P.conversion(p.name,m.ownerProgress)})).sort((a,b)=>(b.progress?.advanced??-1)-(a.progress?.advanced??-1)||(b.progress?.steps??-1)-(a.progress?.steps??-1)||b.count-a.count),pct=v=>v===null?'No disponible':num(v*100,1)+' %';
    for(const [i,people] of chunks(ranked,5).entries()){
-    const values=[['Responsable','Llamadas','Opps con avance','Etapas netas','Trabajadas','Ganadas','Conversión'],...people.map(p=>[p.name,num(p.count),num(p.progress?.advanced),num(p.progress?.steps),num(p.conversion?.worked),num(p.conversion?.converted),pct(p.conversion?.rate??null)])];
+    const values=[['Responsable','Llamadas','Opps con avance','Etapas netas','Opps','Ganadas','Conversión'],...people.map(p=>[p.name,num(p.count),num(p.progress?.advanced),num(p.progress?.steps),num(p.conversion?.worked),num(p.conversion?.converted),pct(p.conversion?.rate??null)])];
     const leader=ranked.find(p=>p.progress?.advanced>0),callsLeader=calls.people[0];
     add('Llamadas y avance por responsable'+(i?' / continuación':''),'Llamadas al '+date(calls.asof)+' / Oportunidades desde '+date(m.first)+' hasta '+date(m.asof),[
      table(values,[250,115,185,150,170,145,190],36,190,Math.max(200,values.length*62),21),

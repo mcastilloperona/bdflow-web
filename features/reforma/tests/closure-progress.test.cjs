@@ -15,6 +15,11 @@ test('net stage progress ignores oscillations, new arrivals, lost states and fut
  const rows=[row('a','s','G - Sales Ready','2026-11-30'),row('a','o','B - Negotiate','2026-11-30'),row('a','n','D - Draw up the solution','2026-11-30'),row('a','f','A - Sign','2026-12-30'),row('new','n','A - Sign','2026-11-30'),row('lost','s','G - Sales Ready','2026-11-30'),row('lost','n','Closed Lost','2026-11-30')];
  const m=R.model(imports,rows,'n');assert.deepEqual(m.ownerProgress,[{owner:'Ana Pérez',worked:3,advanced:1,steps:3,rate:1/3}]);
 });
+test('ownership transfers reset stage comparison and winning owner receives the closure',()=>{
+ const rows=[row('a','s','G - Sales Ready','2026-10-20',0,'Ana Pérez'),row('a','o','B - Negotiate','2026-10-20',100,'Luis Díaz'),row('a','n','Closed Won','2026-10-20',100,'Luis Díaz')],m=R.model(imports,rows,'n');
+ assert.deepEqual(m.ownerProgress.map(g=>[g.owner,g.advanced,g.steps]),[['Ana Pérez',0,0],['Luis Díaz',1,2]]);assert.equal(m.ownerConversion.find(g=>g.owner==='Ana Pérez').converted,0);assert.equal(m.ownerConversion.find(g=>g.owner==='Luis Díaz').converted,1);
+ const late=R.model(imports,[row('direct','n','Closed Won','2026-10-30',50,'Luis Díaz')],'n');assert.equal(late.ownerConversion[0].worked,1);assert.equal(late.ownerConversion[0].converted,1);assert.equal(late.ownerProgress[0].advanced,0);
+});
 test('requested slide comments are absent and both slide 4 tables share row geometry',()=>{
  const m=R.model(imports,[row('a','s','G - Sales Ready','2026-10-20'),row('a','n','Closed Won','2026-10-20')],'n'),plan=D.plan(m,[]),left=plan.slides[3].blocks.filter(b=>b.kind==='table')[0],right=plan.slides[3].blocks.filter(b=>b.kind==='table')[1];
  assert.equal(left.y,right.y);assert.equal(left.h,right.h);assert.equal(left.values.length,right.values.length);assert.equal(plan.slides[3].blocks.filter(b=>b.kind==='text').length,2);assert.equal(plan.slides[4].blocks.filter(b=>b.kind==='text').length,0);assert.equal(plan.slides[5].blocks.filter(b=>b.kind==='text').length,0);assert(!JSON.stringify(plan.slides[6]).includes('Describe el ritmo observado'));
