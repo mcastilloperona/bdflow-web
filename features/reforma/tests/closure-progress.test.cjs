@@ -5,7 +5,7 @@ test('a win first received in November is an October closure, including direct w
  const rows=[row('late','s','G - Sales Ready','2026-10-31',0),row('late','o','B - Negotiate','2026-10-31'),row('late','n','Closed Won','2026-10-31',200),row('direct','n','Closed Won','2026-10-30',50),row('late','f','Closed Won','2026-10-30',250)];
  const m=R.model(imports,rows,'n'),oct=m.updatedPeriods.find(p=>p.month==='2026-10'),nov=m.updatedPeriods.find(p=>p.month==='2026-11');
  assert.equal(oct.count,2);assert.equal(oct.amount,250);assert.equal(oct.conversions,1);assert.equal(oct.timings.sample,1);assert.equal(oct.timings.mean,32);assert.equal(nov.count,0);assert.equal(nov.amount,0);assert.equal(nov.conversions,0);assert.equal(m.events[0].firstWon,'2026-11-18');assert.equal(m.events[0].close_date,'2026-10-31');assert.equal(m.periods.find(p=>p.month==='2026-10').convertedAmount,200);assert.equal(m.periods.find(p=>p.month==='2026-11').conversions,0);
- const slide=D.plan(m,[]).slides[5],values=slide.blocks[0].values;assert.deepEqual(values[1],['octubre de 2026','2','250,00 €','1','32,0','32,0']);assert.deepEqual(values[2],['noviembre de 2026','0','0,00 €','0','No disponible','No disponible']);
+ const slide=D.plan(m,[]).slides[5],values=slide.blocks[0].values;assert.deepEqual(values[1],['octubre de 2026','2','250,00 €','32,0']);assert.deepEqual(values[2],['noviembre de 2026','0','0,00 €','No disponible']);
 });
 test('close dates before first work never create negative elapsed time and future closes are excluded',()=>{
  const m=R.model(imports,[row('past','o','B - Negotiate','2026-10-20'),row('past','n','Closed Won','2026-10-20'),row('future','s','G - Sales Ready','2026-12-01'),row('future','n','Closed Won','2026-12-01')],'n');

@@ -11,13 +11,14 @@
   const daily=C.dailyImports(sorted.filter(i=>C.importCompare(i,selected)<=0)).sort(C.importCompare),amend=new Map(amounts.map(a=>[a.snapshot_id,a])),byImport=new Map();
   for(const v of snapshots){if(!byImport.has(v.import_id))byImport.set(v.import_id,[]);byImport.get(v.import_id).push({...C.withAmount(v.data,amend.get(v.id)),operation_id:v.operation_id,snapshot_id:v.id});}
   const records=i=>(byImport.get(i.id)||[]).filter(r=>C.inPlan(r,C.REFORMA));
-  const states=new Map(),ownerCohorts=new Map(),ownerNets=new Map(),previousRecords=new Map();let events=[];
+  const states=new Map(),ownerCohorts=new Map(),ownerNets=new Map(),previousRecords=new Map(),transitionGroups=new Map();let events=[];
   const stageRank=r=>r.stage==='Closed Won'&&r.close_date&&r.close_date<=selected.report_date?8:/^[A-G] - /.test(r.stage)?7-'ABCDEFG'.indexOf(r.stage[0]):null;
   const enrollOwner=(owner,id)=>{if(!ownerCohorts.has(owner))ownerCohorts.set(owner,new Set());ownerCohorts.get(owner).add(id);};
   for(const i of daily)for(const r of records(i)){
    const owner=r.owner||'Sin responsable',prior=previousRecords.get(r.operation_id),rankNow=stageRank(r);if(/^[A-G] - /.test(r.stage))enrollOwner(owner,r.operation_id);
    if(prior&&(prior.owner||'Sin responsable')===owner&&rankNow!==null&&stageRank(prior)!==null){if(!ownerNets.has(owner))ownerNets.set(owner,new Map());const net=ownerNets.get(owner);net.set(r.operation_id,(net.get(r.operation_id)||0)+rankNow-stageRank(prior));}previousRecords.set(r.operation_id,r);
-   let t=states.get(r.operation_id);if(!t){t={firstWork:null,firstStage:null,everWon:false,latest:r};states.set(r.operation_id,t);}t.latest=r;
+   if(prior&&(prior.owner||'Sin responsable')===owner&&rankNow!==null&&stageRank(prior)!==null&&rankNow>stageRank(prior)){const key=prior.stage+'|'+r.stage;if(!transitionGroups.has(key))transitionGroups.set(key,{from:prior.stage,to:r.stage,order:stageRank(prior)*10+rankNow,owners:new Map()});const transition=transitionGroups.get(key);if(!transition.owners.has(owner))transition.owners.set(owner,new Set());transition.owners.get(owner).add(r.operation_id);}
+   let t=states.get(r.operation_id);if(!t){t={firstWork:null,firstStage:null,everWon:false,firstSeenStage:r.stage,firstSeenDate:i.report_date,latest:r};states.set(r.operation_id,t);}t.latest=r;
    if(/^[A-G] - /.test(r.stage)&&!t.firstWork&&!t.everWon){t.firstWork=i.report_date;t.firstStage=r.stage;t.firstOwner=r.owner||'Sin responsable';}
    if(r.stage==='Closed Won'&&!t.everWon){t.everWon=true;if(t.firstWork)events.push({...r,firstWork:t.firstWork,firstStage:t.firstStage,firstWon:i.report_date,days:days(t.firstWork,i.report_date),category:category(r.opportunity)});}
   }
@@ -43,7 +44,8 @@
   const ownerConversion=[...ownerCohorts].map(([owner,ids])=>({owner,worked:ids.size,converted:ownerWins.get(owner)||0,rate:ids.size?(ownerWins.get(owner)||0)/ids.size:null}));
   const ownerProgress=[...ownerCohorts].map(([owner,ids])=>{const positive=[...(ownerNets.get(owner)?.values()||[])].filter(n=>n>0);return {owner,worked:ids.size,advanced:positive.length,steps:positive.reduce((n,v)=>n+v,0),rate:ids.size?positive.length/ids.size:null};});
   const sinceOctoberEvents=events.filter(e=>e.close_date>=octoberStart),conversionSummary={...stats(sinceOctoberEvents),timings:timings(sinceOctoberEvents),worked:cohort.length,rate:cohort.length?sinceOctoberEvents.length/cohort.length:null};
-  return {empty:false,ownerConversion,ownerProgress,conversionSummary,first:first.report_date,closedStart,sinceOctober,asof,periods,updatedPeriods,events,won,working:latestRows.filter(r=>/^[A-G] - /.test(r.stage)),groups:groups(won),baseline:stats(baseline),cumulative,unclassified:latestRows.filter(r=>category(r.opportunity)==='unknown'),currentWon:stats(won),reopened:observedEvents.filter(e=>states.get(e.operation_id).latest.stage!=='Closed Won').length};
+  const stageTransitions=[...transitionGroups.values()].sort((a,b)=>a.order-b.order).map(t=>({from:t.from,to:t.to,owners:[...t.owners].map(([owner,ids])=>({owner,operationIds:[...ids],count:ids.size}))})),untrackedWins=won.filter(r=>r.close_date>=octoberStart&&!events.some(e=>e.operation_id===r.operation_id&&Number.isFinite(e.days))).map(r=>({...r,firstSeenStage:states.get(r.operation_id).firstSeenStage,firstSeenDate:states.get(r.operation_id).firstSeenDate}));
+  return {empty:false,ownerConversion,ownerProgress,stageTransitions,untrackedWins,conversionSummary,first:first.report_date,closedStart,sinceOctober,asof,periods,updatedPeriods,events,won,working:latestRows.filter(r=>/^[A-G] - /.test(r.stage)),groups:groups(won),baseline:stats(baseline),cumulative,unclassified:latestRows.filter(r=>category(r.opportunity)==='unknown'),currentWon:stats(won),reopened:observedEvents.filter(e=>states.get(e.operation_id).latest.stage!=='Closed Won').length};
  }
 
  async function workbook(m,ExcelJS,logoBytes,prospecting=null){
