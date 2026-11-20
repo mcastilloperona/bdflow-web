@@ -94,3 +94,9 @@
 @media(max-width:480px){.rf-won-total>strong{font-size:21px}.rf-won-day li{flex-direction:column;gap:5px}.rf-won-day li>strong{text-align:left}.rf-won-dates{max-height:320px}}
 
 .rf .rf-won-month{max-width:100%;width:240px;margin:12px 0;font-size:13px}.rf-won-month select{width:100%;min-width:0}.rf-won-month small{font-size:12px;color:#64748b;font-weight:400}
+
+.rf-follow-filters{margin:12px 0}.rf-follow-filters .rf-controls{align-items:end;margin:0 0 14px;display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr))}
+.rf-follow-stages{border:1px solid #e2e8f0;border-radius:7px;display:flex;flex-wrap:wrap;gap:8px 18px;padding:12px;margin:0;min-width:0}.rf-follow-stages legend{padding:0 6px;font-weight:600}.rf .rf-follow-stages label{flex-direction:row;align-items:center;font-size:13px;cursor:pointer}.rf-follow-stages input{accent-color:#2962ff;width:17px;height:17px;flex-shrink:0}
+.rf-follow-summary{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-top:12px;font-weight:600}.rf-follow-summary button{font-weight:400}.rf-follow-filters>.rf-note{font-size:12px;margin-bottom:0}
+.rf-follow-stages button{font-size:13px;padding:5px 9px}.rf-follow-stages button[aria-pressed="true"]{background:#edf3ff;border-color:#2962ff;color:#2962ff}
+@media(max-width:480px){.rf-follow-filters .rf-controls{grid-template-columns:minmax(0,1fr)}.rf-follow-stages{flex-direction:column}}
